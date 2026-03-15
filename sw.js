@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imminote-v1';
+const CACHE_NAME = 'imminote-v2';
 const ASSETS = [
     './',
     './index.html',
