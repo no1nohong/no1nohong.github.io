@@ -1457,15 +1457,25 @@
             font-style: italic;
         }
 
-        /* --- Mobile: prevent Safari auto-zoom + improve touch usability --- */
+        /*
+         * Mobile: prevent Safari auto-zoom + improve touch usability.
+         * Safari iOS zooms any input/textarea with font-size < 16px on focus.
+         * We enforce a 16px floor on --editor-font-size itself so every element
+         * that inherits the variable is safe, and also hard-set all form controls.
+         */
         @media (max-width: 480px) {
-            /* 16px minimum on inputs prevents Safari auto-zoom on focus */
-            #editor,
-            #preview,
+            :root {
+                --editor-font-size: 16px;
+            }
+
+            /* Hard floor: even if JS sets a smaller custom-property value,
+               inputs stay at 16px minimum to prevent Safari auto-zoom */
             input,
             textarea,
-            select {
-                font-size: max(var(--editor-font-size, 16px), 16px);
+            select,
+            #editor {
+                font-size: 16px !important;
+                font-size: max(var(--editor-font-size, 16px), 16px) !important;
             }
 
             /* Reduce tap delay on all interactive elements */
