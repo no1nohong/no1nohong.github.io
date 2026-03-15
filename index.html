@@ -2308,20 +2308,10 @@
                     const heightDiff = window.innerHeight - vv.height;
                     if (heightDiff > KEYBOARD_THRESHOLD) {
                         // Keyboard is up: fix toolbar just above it
-                        toolbar.style.position = 'fixed';
                         toolbar.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 8) + 'px';
-                        toolbar.style.left = '8px';
-                        toolbar.style.right = '8px';
-                        toolbar.style.transform = 'none';
-                        toolbar.style.zIndex = '100';
                     } else {
                         // Keyboard dismissed: restore CSS-defined positioning
-                        toolbar.style.position = '';
                         toolbar.style.bottom = '';
-                        toolbar.style.left = '';
-                        toolbar.style.right = '';
-                        toolbar.style.transform = '';
-                        toolbar.style.zIndex = '';
                     }
                 }
                 window.visualViewport.addEventListener('resize', adjustToolbarForKeyboard);
