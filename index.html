@@ -3,8 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- viewport-fit=cover enables safe-area-inset-* for notched iOS devices -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover">
+    <!-- viewport-fit=cover: safe-area-inset-* for notched devices.
+         maximum-scale=1: prevents Safari auto-zoom on input focus.
+         (iOS 10+ still allows pinch-to-zoom even with maximum-scale=1.) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover">
     <meta name="description"
         content="Imminote - a fast, offline-first note-taking app. No cloud, no frameworks, just your thoughts.">
     <meta name="theme-color" content="#1e1e1e">
@@ -2294,6 +2296,23 @@
 
             // Update backdrop on resize
             window.addEventListener('resize', updateBackdrop);
+
+            // Hide toolbar when virtual keyboard is raised on mobile.
+            // visualViewport.height shrinks when the keyboard opens;
+            // we compare it to the outer height to detect this.
+            if (window.visualViewport) {
+                const toolbar = document.getElementById('toolbar');
+                let keyboardVisible = false;
+                const KEYBOARD_THRESHOLD = 150; // px difference = keyboard is up
+                window.visualViewport.addEventListener('resize', function () {
+                    const heightDiff = window.innerHeight - window.visualViewport.height;
+                    const isKeyboard = heightDiff > KEYBOARD_THRESHOLD;
+                    if (isKeyboard !== keyboardVisible) {
+                        keyboardVisible = isKeyboard;
+                        toolbar.style.display = isKeyboard ? 'none' : '';
+                    }
+                });
+            }
 
             // Load templates
             loadTemplates();
