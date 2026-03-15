@@ -2309,9 +2309,9 @@
                     const heightDiff = window.innerHeight - vv.height;
                     if (heightDiff > KEYBOARD_THRESHOLD) {
                         // Keyboard is up: fix toolbar, wordcount, save indicator just above it
-                        toolbar.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 12) + 'px';
-                        wordCountEl.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 5) + 'px';
-                        saveIndEl.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 5) + 'px';
+                        toolbar.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 20) + 'px';
+                        wordCountEl.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 2) + 'px';
+                        saveIndEl.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 2) + 'px';
                     } else {
                         // Keyboard, wordcount, save indicator dismissed: restore CSS-defined positioning
                         toolbar.style.bottom = '';
