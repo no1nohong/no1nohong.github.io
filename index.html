@@ -1776,7 +1776,7 @@
         <div id="templateMenu" class="template-menu" role="menu" aria-label="Templates"></div>
 
         <div class="word-count" id="wordCount"></div>
-        <div class="save-indicator">saved</div>
+        <div class="save-indicator" id="saveIndEl">saved</div>
         <div class="undo-toast" id="undoToast" role="alert" aria-live="assertive">
             <span id="undoMessage">Deleted.</span>
             <button class="undo-btn" id="undoBtn" onclick="undoDelete()">undo</button>
@@ -1928,6 +1928,7 @@
         const importFileInput = document.getElementById('importFile');
         const templateMenu = document.getElementById('templateMenu');
         const wordCountEl = document.getElementById('wordCount');
+        const saveIndEl = document.getElementById('saveIndEl');
         const ioBoundaryLabel = document.getElementById('ioBoundaryLabel');
         const ioBoundaryIcon = document.getElementById('ioBoundaryIcon');
         const ioThemeIcon = document.getElementById('ioThemeIcon');
@@ -2307,11 +2308,15 @@
                     const vv = window.visualViewport;
                     const heightDiff = window.innerHeight - vv.height;
                     if (heightDiff > KEYBOARD_THRESHOLD) {
-                        // Keyboard is up: fix toolbar just above it
+                        // Keyboard is up: fix toolbar, wordcount, save indicator just above it
                         toolbar.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 8) + 'px';
+                        wordCountEl.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 8) + 'px';
+                        saveIndEl.style.bottom = (window.innerHeight - vv.height - vv.offsetTop + 8) + 'px';
                     } else {
-                        // Keyboard dismissed: restore CSS-defined positioning
+                        // Keyboard, wordcount, save indicator dismissed: restore CSS-defined positioning
                         toolbar.style.bottom = '';
+                        wordCountEl.style.bottom = '';
+                        saveIndEl.style.bottom = '';
                     }
                 }
                 window.visualViewport.addEventListener('resize', adjustToolbarForKeyboard);
