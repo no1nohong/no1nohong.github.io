@@ -22,6 +22,22 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    // Navigation requests (HTML pages): network-first so updates land immediately.
+    // Falls back to cache when offline.
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).then((response) => {
+                if (response.ok) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                }
+                return response;
+            }).catch(() => caches.match('./index.html'))
+        );
+        return;
+    }
+
+    // All other assets (fonts, icons): cache-first for speed, offline support.
     event.respondWith(
         caches.match(event.request).then((cached) => {
             if (cached) return cached;
@@ -37,10 +53,6 @@ self.addEventListener('fetch', (event) => {
                 }
                 return response;
             });
-        }).catch(() => {
-            if (event.request.mode === 'navigate') {
-                return caches.match('./index.html');
-            }
-        })
+        }).catch(() => {})
     );
 });
