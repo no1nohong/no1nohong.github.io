@@ -1,0 +1,4814 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Imminote - a fast, offline-first note-taking app. No cloud, no frameworks, just your thoughts.">
+    <meta name="theme-color" content="#1e1e1e">
+    <title>&#10084; Imminote</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-color: #1e1e1e;
+            --sidebar-bg: #232323;
+            --hover-bg: #2c2c2c;
+            --active-bg: rgba(141, 92, 68, 0.37);
+
+            /* Earth Tones */
+            --earth-primary: #e99b73;
+            --earth-dim: rgba(207, 142, 109, 0.1);
+            --earth-dimmer: rgba(207, 142, 109, 0.05);
+
+            --text-color: #9c948c;
+            --text-active: rgb(236, 229, 222);
+            --bookmark-color: #e5c07b;
+            --border-color: rgba(236, 229, 222, 0.13);
+
+            /* Semantic surface & text tokens */
+            --surface-deep: #111;
+            --surface-raised: #2d2d2d;
+            --surface-overlay: #333;
+            --surface-overlay-border: #454545;
+            --border-strong: rgba(236, 229, 222, 0.18);
+            --text-dim: #b9aea1;
+            --text-muted: #c4bbb0;
+            --text-overlay: #eee;
+            --text-chars: #daccbd;
+            --danger-color: #ff8b8b;
+            --danger-color-muted: #be5a5a;
+            --editor-guide: rgba(236, 229, 222, 0.11);
+
+            --font-stack: 'DM Mono', 'Fira Code', Consolas, monospace;
+            --editor-font-size: 15px;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f5f0e8;
+            --sidebar-bg: #ece5d8;
+            --hover-bg: #e3dcd0;
+            --active-bg: #d6c4a6;
+            --earth-primary: #c37136;
+            --earth-dim: rgba(181, 118, 74, 0.12);
+            --earth-dimmer: rgba(181, 118, 74, 0.06);
+            --text-color: #7a6f5f;
+            --text-active: #2a231b;
+            --bookmark-color: #c49a3c;
+            --border-color: #d4cdc2;
+
+            --surface-deep: #ddd7cc;
+            --surface-raised: #e3dcd0;
+            --surface-overlay: #e8e1d6;
+            --surface-overlay-border: var(--border-color);
+            --border-strong: #aca69c;
+            --text-dim: var(--text-color);
+            --text-muted: #6b6155;
+            --text-chars: #5a5247;
+            --text-overlay: var(--text-active);
+            --danger-color: #c44;
+            --danger-color-muted: rgb(188, 97, 97);
+            --editor-guide: rgba(122, 111, 95, 0.28);
+        }
+
+        /* --- Selection Highlight --- */
+        ::selection {
+            background: rgba(207, 142, 109, 0.35);
+            color: var(--text-active);
+        }
+
+        [data-theme="light"] ::selection {
+            background: rgba(181, 118, 74, 0.3);
+            color: #3d3527;
+        }
+
+        body {
+            background: var(--bg-color);
+            color: var(--text-active);
+            font-family: var(--font-stack);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar --- */
+        #sidebar {
+            width: 300px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            user-select: none;
+            transition: width 0.2s ease, border-width 0.2s ease;
+            overflow: hidden;
+            border-top-right-radius: 20px;
+            border-bottom-right-radius: 20px;
+        }
+
+        #sidebar.sidebar-collapsed {
+            width: 0;
+            border-right-width: 0;
+        }
+
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 15;
+        }
+
+        .tool-label-short {
+            display: none;
+        }
+
+        .sidebar-toggle {
+            display: none;
+        }
+
+        .sidebar-header {
+            padding: 16px 16px 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-title {
+            font-weight: 500;
+            letter-spacing: 2px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            background: transparent;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: var(--hover-bg);
+            color: var(--text-active);
+        }
+
+        .icon-btn:active {
+            transform: scale(0.93);
+        }
+
+        .icon-btn.active {
+            color: var(--bookmark-color);
+            border-color: var(--bookmark-color);
+            background: rgba(229, 192, 123, 0.1);
+        }
+
+        .new-btn {
+            background: transparent;
+            color: var(--earth-primary);
+            border: 1px solid var(--earth-primary);
+            padding: 0 10px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+
+        .new-btn:hover {
+            background: var(--earth-dim);
+            border-color: var(--earth-primary);
+        }
+
+        .new-btn:active {
+            transform: scale(0.95);
+        }
+
+        .search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--surface-deep);
+            border: 1px solid var(--border-color);
+            color: var(--text-active);
+            padding: 7px 28px 7px 10px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--earth-primary);
+            background: var(--surface-raised);
+        }
+
+        .search-clear {
+            position: absolute;
+            right: 6px;
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 14px;
+            font-family: var(--font-stack);
+            padding: 0 2px;
+            line-height: 1;
+            display: none;
+            transition: color 0.15s;
+        }
+
+        .search-clear:hover {
+            color: var(--text-active);
+        }
+
+        .search-clear.show {
+            display: block;
+        }
+
+        .file-tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+            font-size: 13px;
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-strong) var(--sidebar-bg);
+        }
+
+        /* --- Tree Items --- */
+        .tree-item {
+            position: relative;
+            color: var(--text-color);
+        }
+
+        .tree-header,
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 4px 10px 4px 8px;
+            cursor: pointer;
+            border-left: 2px solid transparent;
+            position: relative;
+            height: 30px;
+            transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+        }
+
+        .tree-header:hover,
+        .file-item:hover {
+            background: var(--hover-bg);
+            color: var(--text-active);
+        }
+
+        /* Highlighting Logic */
+        .tree-item.active-parent>.tree-header {
+            background: var(--earth-dimmer);
+            border-left-color: var(--earth-primary);
+            color: var(--text-active);
+        }
+
+        .file-item.active {
+            background: var(--active-bg);
+            color: var(--text-active);
+            border-left: 2px solid var(--earth-primary);
+            font-weight: 500;
+        }
+
+        .sub-folder.active-parent>.tree-header {
+            color: var(--text-active)!important;
+            background: var(--earth-dim);
+        }
+
+        /* --- Today Bracketing --- */
+
+        .today-separator {
+            padding: 24px 8px 4px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: var(--earth-primary);
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            opacity: 0.8;
+        }
+
+        .today-separator::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--earth-primary);
+            margin-left: 8px;
+            opacity: 0.26;
+        }
+
+        .today-empty {
+            padding: 12px 16px;
+            font-size: 12px;
+            color: var(--text-dim);
+            font-style: italic;
+        }
+
+        /* Footer Line */
+        .today-footer {
+            margin: 12px 8px;
+            height: 1px;
+            background: var(--earth-primary);
+            opacity: 0.26;
+        }
+
+        .arrow {
+            display: inline-block;
+            width: 16px;
+            text-align: center;
+            font-size: 10px;
+            transition: transform 0.15s ease;
+            margin-right: 4px;
+            opacity: 0.5;
+        }
+
+        .tree-item.open>.tree-header .arrow {
+            transform: rotate(90deg);
+        }
+        .note-icon,
+        .anchor-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+
+        .note-icon {
+            font-size: 10px;
+            opacity: 0.25;
+            color: var(--earth-primary);
+        }
+
+        .anchor-icon {
+            color: var(--text-muted);
+            opacity: 0.72;
+            pointer-events: none;
+        }
+
+        .context-item .anchor-icon {
+            width: 14px;
+            height: 14px;
+            margin-right: 0;
+            color: currentColor;
+            opacity: 1;
+        }
+
+        .file-item.active .anchor-icon,
+        .file-item:hover .anchor-icon,
+        .file-item.focused .anchor-icon {
+            color: var(--text-active);
+            opacity: 1;
+        }
+
+        .item-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 8px;
+        }
+
+        .tree-header .item-text { font-weight: 500; }
+        .file-item .item-text { color: var(--text-muted); }
+        .file-item.active .item-text { color: var(--text-active); }
+
+        .item-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .tree-header:hover .item-controls,
+        .file-item:hover .item-controls {
+            opacity: 0.5;
+        }
+
+        .item-controls:hover {
+            opacity: 1 !important;
+        }
+
+        .control-btn {
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 12px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .control-btn:hover {
+            background: var(--border-strong);
+            color: var(--text-active);
+        }
+
+        .control-btn:active {
+            transform: scale(0.93);
+        }
+
+        .star-btn {
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            align-items: center;
+        }
+
+        .tree-header:hover .star-btn,
+        .file-item:hover .star-btn {
+            opacity: 0.35;
+        }
+
+        .star-btn:hover {
+            opacity: 1 !important;
+            color: var(--bookmark-color);
+        }
+
+        .star-btn.is-active {
+            color: var(--bookmark-color);
+            opacity: 1;
+        }
+
+        .control-btn.add-note {
+           margin-left: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1;
+        }
+
+        .control-btn.add-note:hover {
+            color: var(--earth-primary);
+        }
+
+        .file-item {
+            padding-left: 26px;
+        }
+
+        .sub-folder .tree-header {
+            padding-left: 26px;
+        }
+
+        .sub-folder .file-item {
+            padding-left: 46px;
+        }
+
+        /* --- Folder type hierarchy --- */
+        .tree-header[data-drop-type="date"] {
+            padding-top: 8px;
+            padding-bottom: 8px;
+            margin-top: 2px;
+            height: auto;
+            min-height: 30px;
+        }
+
+        .tree-header[data-drop-type="date"] .item-text {
+            letter-spacing: 0.3px;
+        }
+
+        .tree-header[data-drop-type="date"] .arrow {
+            opacity: 0.7;
+        }
+
+        .tree-header[data-drop-type="time"] .item-text {
+            font-size: 13px;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        .tree-item.active-parent > .tree-header[data-drop-type="time"] .item-text,
+        .tree-header[data-drop-type="time"]:hover .item-text,
+        .tree-header.focused[data-drop-type="time"] .item-text {
+            color: var(--text-active);
+        }
+
+        .tree-header[data-drop-type="time"] .arrow {
+            opacity: 0.35;
+            font-size: 9px;
+        }
+
+        .tree-header[data-drop-type="time"] .folder-count {
+            opacity: 0.5;
+        }
+
+        .tree-header[data-drop-type="custom"] .arrow {
+            color: var(--earth-primary);
+            opacity: 0.5;
+        }
+
+        .tree-children {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.2s ease-out;
+        }
+
+        .tree-item.open>.tree-children {
+            max-height: 2000px;
+            transition: max-height 0.35s ease-in;
+        }
+
+        /* Sidebar Animations */
+        @keyframes sidebarFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .sidebar-fade-in {
+            animation: sidebarFadeIn 0.25s ease-out;
+        }
+
+        @keyframes sidebarFadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+        }
+
+        .sidebar-fade-out {
+            animation: sidebarFadeOut 0.2s ease-in forwards;
+        }
+
+        /* Context Menu */
+        .context-menu {
+            position: absolute;
+            background: var(--surface-overlay);
+            border: 1px solid var(--surface-overlay-border);
+            border-radius: 4px;
+            padding: 4px 0;
+            z-index: 100;
+            min-width: 140px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+            display: none;
+            animation: menuFadeIn 0.12s ease-out;
+        }
+
+        .context-menu.show {
+            display: block;
+        }
+
+        @keyframes menuFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-4px) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .context-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-overlay);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.1s, color 0.1s;
+        }
+
+        .context-item:hover {
+            background: var(--earth-primary);
+            color: var(--surface-deep);
+        }
+        .context-icon {
+            width: .9em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .context-divider {
+            height: 1px;
+            align-items: center;
+            background: var(--border-strong);
+            margin: 4px 0;
+        }
+
+        .context-item-danger {
+            color: var(--danger-color);
+        }
+
+        /* Drag and Drop */
+        .tree-header.drag-over,
+        .file-item.drag-over {
+            border-left: 2px solid var(--earth-primary);
+            background: var(--earth-dim);
+        }
+
+        .today-separator.drag-over,
+        .today-footer.drag-over {
+            background: var(--earth-dim);
+        }
+
+        .tree-header.drop-target {
+            outline: 2px solid var(--earth-primary);
+            outline-offset: -2px;
+            border-radius: 4px;
+            background: var(--earth-dimmer);
+            animation: dropTargetFade 0.3s ease-in;
+        }
+
+        @keyframes dropTargetFade {
+            from {
+                outline-color: transparent;
+            }
+
+            to {
+                outline-color: var(--earth-primary);
+            }
+        }
+
+        [draggable="true"] {
+            cursor: grab;
+        }
+
+        [draggable="true"]:active {
+            cursor: grabbing;
+            opacity: 0.6;
+            transition: opacity 0.15s ease;
+        }
+
+        .rename-input {
+            background: var(--surface-deep);
+            color: var(--text-active);
+            border: 1px solid var(--earth-primary);
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-family: inherit;
+            font-size: inherit;
+            width: 100%;
+            outline: none;
+        }
+
+        /* --- Editor --- */
+        #main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #editor {
+            width: 100%;
+            height: 100%;
+            padding: 40px 40px 90px 40px;
+            background: var(--bg-color);
+            color: var(--text-active);
+            border: none;
+            outline: none;
+            font-family: var(--font-stack);
+            font-weight: var(--font-weight);
+            font-size: var(--editor-font-size);
+            line-height: 1.66;
+            resize: none;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            caret-color: var(--earth-primary);
+            scroll-padding-bottom: 90px;
+        }
+
+        #editor::placeholder {
+            color: var(--text-dim);
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        
+        .editor-toolbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            opacity: 0.88;
+            transition: opacity 0.2s;
+            background: var(--surface-raised);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 6px;
+            max-width: calc(100% - 40px);
+            white-space: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            align-items: center;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+        }
+
+        .editor-toolbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .editor-toolbar:hover {
+            opacity: 1;
+        }
+
+        .tool-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            padding: 6px 13px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-size: 15px;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .tool-btn-size{
+            justify-content: flex-start;
+        }
+
+        .tool-btn-size .value{
+            justify-content: flex-start;
+            display: inline-block;
+            min-width: 6ch;
+        }
+
+        .tool-btn-md{
+            justify-content: flex-start;
+        }
+
+        .tool-btn-md .value{
+            justify-content: flex-start;
+            display: inline-block;
+            min-width: 16ch;
+        }
+        
+
+        .toolbar-separator {
+            width: 1px;
+            height: 14px;
+            background: var(--border-strong);
+            opacity: 0.45;
+            flex-shrink: 0;
+        }
+        
+        .tool-btn:hover {
+            color: var(--text-active);
+        }
+
+        .tool-btn:active {
+            transform: scale(0.95);
+        }
+
+        .tool-btn:focus-visible {
+            outline: 1px solid var(--earth-primary);
+            outline-offset: 1px;
+        }
+
+        #preview {
+            display: none;
+            width: 100%;
+            height: 100%;
+            padding: 40px 40px 90px 40px;
+            overflow-y: auto;
+            color: var(--text-active);
+            font-family: var(--font-stack);
+            font-size: var(--editor-font-size);
+            line-height: 1.66;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            scroll-behavior: smooth;
+            scroll-padding-bottom: 90px;
+        }
+
+        #preview h1 {
+            font-size: 22px;
+            color: var(--earth-primary);
+            margin: 0 0 12px 0;
+            font-weight: 500;
+        }
+
+        #preview h2 {
+            font-size: 18px;
+            color: var(--earth-primary);
+            margin: 0 0 10px 0;
+            font-weight: 500;
+        }
+
+        #preview h3 {
+            font-size: 16px;
+            color: var(--earth-primary);
+            margin: 0 0 8px 0;
+            font-weight: 500;
+        }
+
+        #preview strong {
+            color: var(--text-active);
+            font-weight: 600;
+        }
+
+        #preview em {
+            font-style: italic;
+        }
+
+        #preview code {
+            background: var(--surface-raised);
+            color: var(--bookmark-color);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+
+        #preview pre {
+            background: var(--surface-raised);
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        #preview pre code {
+            background: none;
+            padding: 0;
+        }
+
+        #preview a {
+            color: var(--earth-primary);
+            text-decoration: underline;
+        }
+
+        #preview a:hover {
+            opacity: 0.8;
+        }
+
+        #preview ul,
+        #preview ol {
+            padding-left: 20px;
+            margin: 6px 0;
+        }
+
+        #preview li {
+            margin: 2px 0;
+        }
+
+        #preview hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 12px 0;
+        }
+
+        #preview p {
+            margin: 6px 0;
+        }
+
+        #preview blockquote {
+            border-left: 3px solid var(--earth-primary);
+            padding-left: 12px;
+            color: var(--text-muted);
+            margin: 8px 0;
+        }
+
+        .tool-btn.active {
+            background: var(--earth-primary);
+            color: var(--surface-deep);
+            border-color: var(--earth-primary);
+            box-shadow: 0 0 8px rgba(207, 142, 109, 0.3);
+        }
+
+        .save-indicator {
+            position: absolute;
+            bottom: 2px;
+            right: 10px;
+            color: var(--earth-primary);
+            text-shadow: 0 0 16px var(--earth-primary);
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        .save-indicator.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .word-count {
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--text-chars);
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .word-count.show {
+            opacity: 0.6;
+        }
+
+        .tool-btn-delete{
+            color: var(--danger-color-muted)!important;
+            white-space: nowrap;
+        }
+
+        .tool-btn-delete:not(.show) {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        .tool-btn-delete:hover {
+            color: var(--danger-color)!important;
+        }
+
+        .toolbar-toggle-inline {
+            display: flex;
+        }
+
+
+        .tool-btn-new {
+            color: var(--earth-primary)!important;
+            white-space: nowrap;
+            text-shadow: 0 0px 8px var(--earth-primary)!important;
+        }
+
+        .tool-btn-new:hover {
+            background: var(--earth-dim)!important;
+            color: var(--earth-primary)!important;
+        }
+
+        .undo-toast {
+            position: absolute;
+            bottom: 60px;
+            right: 20px;
+            background: var(--surface-raised);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+            transition: opacity 0.25s, transform 0.25s;
+        }
+
+        .undo-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .undo-btn {
+            background: none;
+            border: none;
+            color: var(--earth-primary);
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-size: 12px;
+            font-weight: 500;
+            text-decoration: underline;
+            transition: color 0.15s;
+        }
+
+        .undo-btn:hover {
+            color: var(--text-active);
+        }
+
+        .format-menu {
+            position: absolute;
+            background: var(--surface-overlay);
+            border: 1px solid var(--surface-overlay-border);
+            border-radius: 4px;
+            padding: 4px 0;
+            z-index: 100;
+            min-width: 160px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+            display: none;
+            animation: menuFadeIn 0.12s ease-out;
+        }
+
+        .format-menu.show {
+            display: block;
+        }
+
+        .format-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-overlay);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            transition: background 0.1s, color 0.1s;
+        }
+
+        .format-item:hover {
+            background: var(--earth-primary);
+            color: var(--surface-deep);
+        }
+
+        .format-item .shortcut {
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+
+        .format-item:hover .shortcut {
+            color: var(--surface-overlay);
+        }
+
+        .file-item.selected {
+            background: var(--earth-dimmer);
+            border-left: 2px dashed var(--earth-primary);
+        }
+
+        .bulk-bar {
+            display: none;
+            padding: 8px 12px;
+            border-top: 1px solid var(--border-color);
+            background: var(--sidebar-bg);
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+        }
+
+        .bulk-bar.show {
+            display: flex;
+        }
+
+        .bulk-count {
+            color: var(--text-color);
+            margin-right: auto;
+        }
+
+        .bulk-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-size: 11px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .bulk-btn:hover {
+            background: var(--hover-bg);
+            color: var(--text-active);
+        }
+
+        .bulk-btn:active {
+            transform: scale(0.95);
+        }
+
+        .bulk-btn.danger {
+            color: var(--danger-color);
+            border-color: rgba(255, 139, 139, 0.25);
+        }
+
+        .bulk-btn.danger:hover {
+            background: rgba(255, 139, 139, 0.1);
+        }
+
+        /* --- Sidebar Footer / Recycle Bin --- */
+        .sidebar-footer {
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .trash-toggle {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 10px 16px;
+            text-align: center;
+            transition: color 0.15s, background 0.15s;
+            font-family: var(--font-stack);
+        }
+
+        .trash-toggle:hover {
+            color: var(--text-active);
+            background: var(--hover-bg);
+        }
+
+        .trash-toggle.active {
+            color: var(--earth-primary);
+        }
+
+        .trash-tree {
+            display: none;
+            overflow-y: auto;
+            max-height: 300px;
+            font-size: 13px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-strong) var(--sidebar-bg);
+        }
+
+        .trash-tree.show {
+            display: block;
+        }
+
+        .trash-tree .file-item,
+        .trash-tree .tree-header {
+            opacity: 0.55;
+        }
+
+        .trash-tree .file-item:hover,
+        .trash-tree .tree-header:hover {
+            opacity: 0.8;
+        }
+
+        .trash-tree .star-btn,
+        .trash-tree .add-note {
+            display: none !important;
+        }
+
+        .trash-empty-btn {
+            display: none;
+            background: transparent;
+            border: none;
+            color: var(--danger-color-muted);
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-size: 11px;
+            padding: 6px 16px;
+            text-align: center;
+            transition: color 0.15s, background 0.15s;
+        }
+
+        .trash-empty-btn:hover {
+            color: var(--danger-color);
+            background: rgba(255, 139, 139, 0.06);
+        }
+
+        .trash-empty-btn.show {
+            display: block;
+        }
+
+        .tree-header.focused,
+        .file-item.focused {
+            outline: 2px solid var(--earth-primary);
+            outline-offset: -2px;
+            background: var(--hover-bg);
+            color: var(--text-active)!important;
+        }
+
+        .folder-count {
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-left: 6px;
+            font-weight: 400;
+            font-variant-numeric: tabular-nums;
+            background: var(--earth-dimmer);
+            padding: 1px 5px;
+            border-radius: 8px;
+            line-height: 1.3;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 12px;
+            line-height: 1.8;
+            user-select: none;
+            animation: emptyFadeIn 0.4s ease-out;
+        }
+
+        @keyframes emptyFadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .empty-state .flag-art {
+            font-size: 14px;
+            color: var(--earth-primary);
+            opacity: 0.85;
+            margin-bottom: 16px;
+            white-space: pre;
+            line-height: 1.4;
+            text-shadow: 0 0 20px rgba(207, 142, 109, 0.2);
+        }
+
+        .empty-state .hint {
+            color: var(--text-dim);
+            font-size: 10px;
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--sidebar-bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-strong);
+            border-radius: 5px;
+            border: 2px solid var(--sidebar-bg);
+            transition: background 0.2s;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-dim);
+        }
+
+        /* --- Light Mode Overrides (only rules not handled by CSS vars) --- */
+        [data-theme="light"] .control-btn:hover {
+            background: var(--active-bg);
+            color: var(--text-active);
+        }
+
+        [data-theme="light"] .context-item:hover,
+        [data-theme="light"] .format-item:hover {
+            color: #fff;
+        }
+
+        [data-theme="light"] .context-item-danger:hover {
+            color: #fff;
+        }
+
+        [data-theme="light"] .tool-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border-color: var(--border-color);
+        }
+
+        [data-theme="light"] .tool-btn:hover {
+            background: var(--hover-bg);
+            color: var(--text-active);
+            border-color: var(--text-color);
+        }
+
+        [data-theme="light"] .tool-btn.active {
+            background: var(--earth-primary);
+            color: #fff;
+            border-color: var(--earth-primary);
+            box-shadow: 0 0 8px rgba(181, 118, 74, 0.25);
+        }
+
+        [data-theme="light"] .format-item:hover .shortcut {
+            color: var(--surface-overlay);
+        }
+
+        [data-theme="light"] .bulk-btn.danger:hover {
+            background: rgba(204, 68, 68, 0.1);
+        }
+
+        [data-theme="light"] ::-webkit-scrollbar-thumb {
+            background: #c4bdb2;
+            border-color: var(--sidebar-bg);
+        }
+
+        [data-theme="light"] #editor,
+        [data-theme="light"] #preview {
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- Focus Visible Rings --- */
+        .icon-btn:focus-visible,
+        .new-btn:focus-visible,
+        /* --- Template Menu --- */
+        .template-menu {
+            position: absolute;
+            bottom: 48px;
+            background: var(--surface-overlay);
+            border: 1px solid var(--surface-overlay-border);
+            border-radius: 4px;
+            padding: 4px 0;
+            z-index: 100;
+            min-width: 180px;
+            max-width: 260px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+            display: none;
+            animation: menuFadeIn 0.12s ease-out;
+        }
+
+        .template-menu.show {
+            display: block;
+        }
+
+        .template-menu .context-item {
+            font-size: 12px;
+        }
+
+        .template-menu .template-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .template-menu .template-delete {
+            opacity: 0;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 11px;
+            padding: 0 2px;
+            transition: opacity 0.15s, color 0.15s;
+        }
+
+        .template-menu .context-item:hover .template-delete {
+            opacity: 1;
+        }
+
+        .template-menu .template-delete:hover {
+            color: var(--danger-color);
+        }
+
+        .template-save-row {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .template-name-input {
+            flex: 1;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-active);
+            font-family: var(--font-stack);
+            font-size: 12px;
+            padding: 4px 6px;
+            border-radius: 3px;
+            outline: none;
+            min-width: 0;
+        }
+
+        .template-name-input:focus {
+            border-color: var(--earth-primary);
+        }
+
+        .template-save-confirm {
+            color: var(--earth-primary);
+            font-size: 12px;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            white-space: nowrap;
+        }
+
+        .template-save-confirm:hover {
+            color: var(--text-active);
+        }
+
+        .template-empty-hint {
+            padding: 6px 12px;
+            color: var(--text-dim);
+            font-size: 11px;
+            font-style: italic;
+        }
+
+        /* --- Reduced Motion (Accessibility) --- */
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        /* --- Responsive: Wide screens --- */
+        @media (min-width: 1200px) {
+            :root:not([data-writing-boundaries="off"]) #editor,
+            :root:not([data-writing-boundaries="off"]) #preview {
+                width: min(100%, 780px);
+                margin: 0 auto;
+                padding-left: 44px;
+                padding-right: 44px;
+                border-left: none;
+                border-right: none;
+
+                background-image:
+                    linear-gradient(
+                        to bottom,
+                        transparent 0,
+                        transparent 24px,
+                        var(--editor-guide) 64px,
+                        var(--editor-guide) calc(100% - 64px),
+                        transparent calc(100% - 24px),
+                        transparent 100%
+                    ),
+                    linear-gradient(
+                        to bottom,
+                        transparent 0,
+                        transparent 24px,
+                        var(--editor-guide) 64px,
+                        var(--editor-guide) calc(100% - 64px),
+                        transparent calc(100% - 24px),
+                        transparent 100%
+                    );
+
+                background-size: 1px 100%, 1px 100%;
+                background-position: left top, right top;
+                background-repeat: no-repeat, no-repeat;
+            }
+        }
+
+        /* Hide Writing Boundaries toggle when the effect wouldn't apply */
+        @media (max-width: 1199px) {
+            #ioToggleBoundaries,
+            .boundaries-divider {
+                display: none;
+            }
+        }
+
+        /* --- Responsive: Tablet (sidebar overlay) --- */
+        @media (max-width: 1000px) {
+            #sidebar {
+                width: 0;
+                border-right-width: 0;
+                position: absolute;
+                z-index: 20;
+                height: 100%;
+            }
+
+            #sidebar:not(.sidebar-collapsed) {
+                width: 280px;
+                border-right-width: 1px;
+            }
+
+            .sidebar-backdrop.show {
+                display: block;
+            }
+
+            #editor,
+            #preview {
+                padding: 28px 28px 80px 28px;
+            }
+
+            .tool-label-long {
+                display: none;
+            }
+
+            .tool-label-short {
+                display: inline;
+            }
+
+            .save-indicator {
+                bottom: 2px;
+            }
+        }
+
+        /* --- Responsive: Small tablet / large phone --- */
+        @media (max-width: 600px) {
+
+            .editor-toolbar {
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                width: auto;
+                max-width: calc(100vw - 24px);
+                padding: 4px 6px;
+                gap: 6px;
+                display: flex;
+                align-items: center;
+            }
+
+                .tool-btn {
+                padding: 6px 8px;
+                font-size: 13px;
+                flex: 0 0 auto;
+                min-width: 0;
+                justify-content: center;
+                white-space: nowrap;
+            }
+
+            .toolbar-separator {
+                height: 12px;
+                margin: 0;
+                flex: 0 0 1px;
+            }
+
+            .save-indicator {
+                bottom: 2px;
+            }
+        }
+
+        /* --- Responsive: Mobile --- */
+        @media (max-width: 480px) {
+
+            .editor-toolbar {
+                left: 8px;
+                right: 8px;
+                padding: 3px;
+                gap: 3px;
+            }
+
+            #sidebar:not(.sidebar-collapsed) {
+                width: calc(100% - 48px);
+            }
+
+            #editor,
+            #preview {
+                padding: 20px 16px 80px 16px;
+            }
+
+            .tool-btn {
+                padding: 6px 7px;
+                font-size: 12px;
+            }
+
+            .icon-btn,
+            .new-btn {
+                min-height: 36px;
+            }
+
+            .icon-btn {
+                width: 36px;
+                height: 36px;
+            }
+
+            .new-btn {
+                height: 36px;
+                padding: 0 12px;
+            }
+
+            .search-input {
+                padding: 10px 28px 10px 10px;
+            }
+            
+            .save-indicator {
+                bottom: 92px;
+            }
+
+            #editor,
+            #preview {
+                padding-bottom: 100px;
+            }
+        }
+
+
+
+    </style>
+    <script>if (localStorage.getItem('imminote_theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');</script>
+</head>
+
+<body>
+
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <div class="header-top">
+                <span class="sidebar-title">imminote &#10084;</span>
+                <div class="actions">
+                    <button class="icon-btn" id="ioMenuBtn" title="import / export"
+                        aria-label="Import and Export menu">&#8942;</button>
+                    <button class="icon-btn" id="filterBtn" style="padding-bottom: 2px;" title="show Bookmarked Only"
+                        aria-label="Filter bookmarked notes">&#9733;</button>
+                </div>
+            </div>
+            <div class="search-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search..."
+                    aria-label="Search notes">
+                <button class="search-clear" id="searchClear" aria-label="Clear search">&#10005;</button>
+            </div>
+        </div>
+        <div class="file-tree" id="fileTree" tabindex="0" role="tree" aria-label="notes tree"></div>
+        <div class="bulk-bar" id="bulkBar">
+            <span class="bulk-count" id="bulkCount">0 selected</span>
+            <button class="bulk-btn" id="bulkBookmark">&#9733; bookmark</button>
+            <button class="bulk-btn danger" id="bulkDelete">delete</button>
+            <button class="bulk-btn" id="bulkClear">Clear</button>
+        </div>
+        <div class="sidebar-footer" id="sidebarFooter">
+            <button class="trash-toggle" id="trashToggle" aria-label="trash">trash</button>
+            <button class="trash-empty-btn" id="trashEmptyBtn">empty all</button>
+            <div class="trash-tree" id="trashTree"></div>
+        </div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <main id="main">
+        <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle sidebar (Ctrl+\)"
+            aria-label="Toggle sidebar">&#9776;</button>
+        <textarea id="editor" placeholder="Type to create a note..." spellcheck="false"></textarea>
+        <div id="preview"></div>
+
+        <div class="editor-toolbar" id="toolbar">
+            <button class="tool-btn toolbar-toggle-inline" onclick="toggleSidebar()" aria-label="Toggle sidebar">&#9776;</button>
+
+            <div class="toolbar-separator"></div>
+
+            <button class="tool-btn tool-btn-new" onclick="prepareGhostNote()" aria-label="Create new note">+ note</button>
+            <button class="tool-btn" id="templateBtn" onclick="toggleTemplateMenu()" aria-label="templates">templates</button>
+
+            <div class="toolbar-separator"></div>
+
+            <button class="tool-btn tool-btn-size" id="fontSizeBtn" onclick="cycleFontSize()" aria-label="Font size"> <span class="tool-label-long">text: </span>
+                <span class="value">medium</span></button>
+            <button class="tool-btn .tool-btn-md" id="previewToggle" onclick="togglePreview()"
+                aria-label="Toggle markdown preview"><span class="tool-label-long">markdown preview</span><span class="tool-label-short">preview</span></button>
+
+            <div class="toolbar-separator"></div>
+
+            <button class="tool-btn tool-btn-delete" id="toolbarTrash" onclick="deleteCurrentNote()" title="Delete note (Ctrl+Backspace)" aria-label="Delete current note">delete</button>
+        </div>
+
+        <div id="templateMenu" class="template-menu" role="menu" aria-label="Templates"></div>
+
+        <div class="word-count" id="wordCount"></div>
+        <div class="save-indicator">saved</div>
+        <div class="undo-toast" id="undoToast" role="alert" aria-live="assertive">
+            <span id="undoMessage">Deleted.</span>
+            <button class="undo-btn" id="undoBtn" onclick="undoDelete()">undo</button>
+        </div>
+    </main>
+
+    <input type="file" id="importFile" accept=".json" style="display:none">
+
+    <div id="contextMenu" class="context-menu" role="menu" aria-label="Note actions">
+        <div class="context-item" id="ctxNewNote" style="display: none;"><span>+</span> new note</div>
+        <div class="context-item" id="ctxNewFolder" style="display: none;"><span>+</span> new folder</div>
+        <div class="context-item" id="ctxAnchor" style="display: none;"></div>
+        <div class="context-item" id="ctxRestore" style="display: none;"><span>&#8617;</span> restore</div>
+        <div class="context-divider" id="ctxDivider"></div>
+        <div class="context-item" id="ctxSaveAs" style="display: none;"><span>&#11015;</span> save As...</div>
+        <div class="context-item" id="ctxRename" style="display: none;"><span>&#9998;</span> rename</div>
+        <div class="context-item context-item-danger" id="ctxDelete"><span>&#10005;</span> delete</div>
+    </div>
+
+    <div id="ioMenu" class="context-menu" role="menu" aria-label="File operations">
+        <div class="context-item" id="ioNewFolder"><span>+</span> new folder</div>
+        <div class="context-divider"></div>
+        <div class="context-item" id="ioExport"><span>&#8593;</span> export backup</div>
+        <div class="context-item" id="ioImport"><span>&#8595;</span> import backup</div>
+        <div class="context-divider boundaries-divider"></div>
+        <div class="context-item" id="ioToggleBoundaries"><span id="ioBoundaryIcon">&#9632;</span><span id="ioBoundaryLabel">writing boundaries</span></div>
+        <div class="context-item" id="ioToggleTheme"><span class ="context-icon"id="ioThemeIcon">&#9790;</span><span id="ioThemeLabel">theme: dark</span></div>
+    </div>
+
+    <div id="formatMenu" class="format-menu">
+        <div class="format-item" data-format="bold"><span>Bold</span><span class="shortcut">Ctrl+B</span></div>
+        <div class="format-item" data-format="italic"><span>Italic</span><span class="shortcut">Ctrl+I</span></div>
+        <div class="format-item" data-format="heading"><span>Heading</span><span class="shortcut">Ctrl+H</span></div>
+        <div class="format-item" data-format="code"><span>Code</span><span class="shortcut">Ctrl+`</span></div>
+        <div class="format-item" data-format="link"><span>Link</span><span class="shortcut">Ctrl+K</span></div>
+        <div class="format-item" data-format="list"><span>List item</span><span class="shortcut">Ctrl+L</span></div>
+    </div>
+
+    <script>
+        // --- State ---
+        let notes = [];
+        let folders = [];
+        let folderAliases = {};
+        let openFolders = new Set();
+        let currentNoteId = null;
+        let contextTarget = null;
+        let searchQuery = "";
+        let filterBookmarked = false;
+        let noteById = new Map();
+        let notesByDate = new Map();
+        let notesByFolder = new Map();
+        let notesByFolderId = new Map();
+        let folderById = new Map();
+        let childFolders = new Map();
+        let notesByDateDirect = new Map();
+        let previewMode = false;
+        let focusedItemIndex = -1;
+        let pendingDelete = null;
+        let undoTimer = null;
+        let selectedNoteIds = new Set();
+        let lastClickedNoteId = null;
+        let currentFontSize = 'medium';
+        let justCreatedNoteId = null;
+        let justCreatedFolderId = null;
+        let sidebarCollapsed = false;
+        let saveIndicatorTimer = null;
+        let templateSaveMode = false;
+        let templates = [];
+        let writingBoundariesEnabled = true;
+        let darkMode = true;
+        let deletedNotes = [];
+        let deletedFolders = [];
+        let trashExpanded = false;
+        const GHOST_PLACEHOLDERS = [
+            "Type to create a note...",
+            "What's on your mind?",
+            "Start typing...",
+            "Write something.",
+            "Thoughts? Ideas? Grocery list?",
+            "Notes go here.",
+            "Blank canvas.",
+            "Begin.",
+            "Something worth remembering?",
+            "Don't lose this thought.",
+            "Capture it.",
+            "Go ahead, type away.",
+            "What needs writing down?",
+            "For your eyes only.",
+            "Ideas, tasks, fragments...",
+            "A note to self.",
+            "Type anything.",
+            "What are you working on?",
+            "Leave yourself a message.",
+            "Ready when you are.",
+            "Thoughts?",
+            "Write it before it disappears.",
+            "Messy thoughts welcome.",
+            "Put it somewhere safe.",
+            "Before you forget...",
+            "This can be rough.",
+            "Doesn't need to be finished.",
+            "Half-formed ideas count too.",
+            "A place for loose ends.",
+            "Start a mess.",
+            "One line is enough.",
+            "Make a mess here.",
+            "Write first, sort later.",
+            "Let the thought land.",
+            "Whatever this is, keep it.",
+            "You'll want this later.",
+            "Small thought, still worth saving.",
+            "If it matters, drop it here.",
+            "Hold that thought.",
+            "For the thing you almost forgot.",
+            "A scratchpad for the brain.",
+            "Put the thought down gently.",
+            "This is where strays go.",
+            "Fragments belong somewhere too.",
+            "Even nonsense can start here.",
+            "Write now, judge later.",
+            "Leave a trail for yourself.",
+            "Start with the part you know.",
+            "Make it make sense later.",
+            "Keep the good ones. Keep the weird ones too.",
+            "What's on your plate?"
+        ];
+
+        const FONT_SIZES = { small: '13px', medium: '15px', large: '18px' };
+        const FONT_SIZE_ORDER = ['small', 'medium', 'large'];
+
+        // --- DOM Elements ---
+        const editor = document.getElementById('editor');
+        const fileTree = document.getElementById('fileTree');
+        const indicator = document.querySelector('.save-indicator');
+        const contextMenu = document.getElementById('contextMenu');
+        const ctxAnchor = document.getElementById('ctxAnchor');
+        if (ctxAnchor) {
+            ctxAnchor.innerHTML = `${getAnchorIconMarkup()}<span id="ctxAnchorLabel">anchor note</span>`;
+        }
+        const ctxAnchorLabel = document.getElementById('ctxAnchorLabel');
+        const searchInput = document.getElementById('searchInput');
+        const filterBtn = document.getElementById('filterBtn');
+        const ioMenu = document.getElementById('ioMenu');
+        const ioMenuBtn = document.getElementById('ioMenuBtn');
+        const importFileInput = document.getElementById('importFile');
+        const templateMenu = document.getElementById('templateMenu');
+        const wordCountEl = document.getElementById('wordCount');
+        const ioBoundaryLabel = document.getElementById('ioBoundaryLabel');
+        const ioBoundaryIcon = document.getElementById('ioBoundaryIcon');
+        const ioThemeIcon = document.getElementById('ioThemeIcon');
+        const ioThemeLabel = document.getElementById('ioThemeLabel');
+        // Returns HH:MM key for minute-level folder grouping
+        function getMinuteKey(date) {
+            return String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+        }
+
+        function getDateKeyFromTimestamp(timestamp) {
+            return new Date(timestamp).toLocaleDateString('en-CA');
+        }
+
+        function getTimeFolderIdFromTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return `${getDateKeyFromTimestamp(timestamp)}|${getMinuteKey(date)}`;
+        }
+
+        function isCustomFolderNote(note) {
+            if (!note || !note.folderId) return false;
+            return folderById.has(note.folderId) || folders.some(folder => folder.id === note.folderId);
+        }
+
+        function normalizeNoteRecord(note, contentLoaded = false) {
+            return {
+                id: note.id,
+                timestamp: note.timestamp,
+                content: note.content || "",
+                customTitle: note.customTitle || null,
+                isBookmarked: !!note.isBookmarked,
+                folderId: note.folderId || null,
+                anchoredDateKey: note.anchoredDateKey || null,
+                anchorOriginFolderId: note.anchorOriginFolderId || null,
+                _contentLoaded: contentLoaded
+            };
+        }
+
+        function isAnchoredNote(note) {
+            return !!(note && note.anchoredDateKey);
+        }
+
+        function getAnchorTargetDateKey(note) {
+            if (!note) return null;
+            if (isCustomFolderNote(note)) return null;
+            if (note.folderId && note.folderId.startsWith('date:')) return note.folderId.substring(5);
+            if (!note.folderId) return getDateKeyFromTimestamp(note.timestamp);
+            return null;
+        }
+
+        function canAnchorNote(note) {
+            return !!getAnchorTargetDateKey(note);
+        }
+
+        function openFolderChain(folderId) {
+            let fid = folderId;
+            while (fid) {
+                openFolders.add(fid);
+                const folder = folderById.get(fid);
+                fid = folder ? folder.parentId : null;
+            }
+        }
+
+        function enforceAnchorConstraints() {
+            const anchoredByDate = new Set();
+            let changed = false;
+
+            notes.forEach(note => {
+                const originalAnchorKey = note.anchoredDateKey || null;
+                const originalOriginFolderId = note.anchorOriginFolderId || null;
+                const originalFolderId = note.folderId || null;
+
+                note.anchoredDateKey = originalAnchorKey;
+                note.anchorOriginFolderId = originalOriginFolderId;
+                note.folderId = originalFolderId;
+
+                if (!note.anchoredDateKey) {
+                    if (note.anchorOriginFolderId !== null) {
+                        note.anchorOriginFolderId = null;
+                        changed = true;
+                    }
+                    return;
+                }
+
+                const dateKey = getDateKeyFromTimestamp(note.timestamp);
+                if (isCustomFolderNote(note)) {
+                    note.anchoredDateKey = null;
+                    note.anchorOriginFolderId = null;
+                    changed = true;
+                    return;
+                }
+
+                if (note.anchoredDateKey !== dateKey) {
+                    note.anchoredDateKey = dateKey;
+                    changed = true;
+                }
+
+                if (anchoredByDate.has(dateKey)) {
+                    note.folderId = note.anchorOriginFolderId || null;
+                    note.anchoredDateKey = null;
+                    note.anchorOriginFolderId = null;
+                    changed = true;
+                    return;
+                }
+
+                anchoredByDate.add(dateKey);
+                const anchoredFolderId = 'date:' + dateKey;
+                if (note.folderId !== anchoredFolderId) {
+                    note.folderId = anchoredFolderId;
+                    changed = true;
+                }
+            });
+
+            return changed;
+        }
+
+        function setNoteAnchored(note, shouldAnchor) {
+            if (!note) return false;
+
+            if (shouldAnchor) {
+                const dateKey = getAnchorTargetDateKey(note);
+                if (!dateKey) return false;
+
+                notes.forEach(other => {
+                    if (other.id !== note.id && other.anchoredDateKey === dateKey) {
+                        setNoteAnchored(other, false);
+                    }
+                });
+
+                const oldFolderId = note.folderId;
+                const oldTimestamp = note.timestamp;
+
+                if (!note.anchoredDateKey) {
+                    note.anchorOriginFolderId = note.folderId || null;
+                }
+
+                note.anchoredDateKey = dateKey;
+                note.folderId = 'date:' + dateKey;
+                openFolders.add(dateKey);
+                indexUpdate(note, oldFolderId, oldTimestamp);
+                return true;
+            }
+
+            if (!note.anchoredDateKey) return false;
+
+            const oldFolderId = note.folderId;
+            const oldTimestamp = note.timestamp;
+            note.folderId = note.anchorOriginFolderId || null;
+            note.anchoredDateKey = null;
+            note.anchorOriginFolderId = null;
+
+            if (note.folderId && note.folderId.startsWith('date:')) {
+                openFolders.add(note.folderId.substring(5));
+            } else if (note.folderId) {
+                openFolderChain(note.folderId);
+            } else {
+                const dateKey = getDateKeyFromTimestamp(note.timestamp);
+                openFolders.add(dateKey);
+                openFolders.add(getTimeFolderIdFromTimestamp(note.timestamp));
+            }
+
+            indexUpdate(note, oldFolderId, oldTimestamp);
+            return true;
+        }
+
+        function getAnchorIconMarkup(iconClass = 'anchor-icon') {
+            return `<svg viewBox="0 0 24 24" class="${iconClass}" aria-hidden="true"><path fill="currentColor" d="M12 2a3 3 0 0 0-1 5.83V10H8v2h3v6.9a5 5 0 0 1-3-4.58H6A7 7 0 0 0 11 21v1h2v-1a7 7 0 0 0 5-6.68h-2A5 5 0 0 1 13 18.9V12h3v-2h-3V7.83A3 3 0 1 0 12 2Zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>`;
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function debounce(fn, ms) {
+            let timer;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), ms);
+            };
+        }
+
+        function parseStoredJSON(key, fallbackValue, validator) {
+            const raw = localStorage.getItem(key);
+            if (!raw) return fallbackValue;
+            try {
+                const parsed = JSON.parse(raw);
+                if (validator && !validator(parsed)) {
+                    throw new Error('Stored value has unexpected shape');
+                }
+                return parsed;
+            } catch (err) {
+                console.warn(`Ignoring invalid localStorage payload for "${key}"`, err);
+                return fallbackValue;
+            }
+        }
+
+        function decodeHTMLEntities(str) {
+            const textarea = document.createElement('textarea');
+            textarea.innerHTML = str;
+            return textarea.value;
+        }
+
+        function sanitizePreviewHref(rawHref) {
+            const decoded = decodeHTMLEntities(String(rawHref || '').trim());
+            if (!decoded) return null;
+            try {
+                const parsed = new URL(decoded, window.location.origin);
+                const protocol = parsed.protocol.toLowerCase();
+                if (protocol === 'http:' || protocol === 'https:' || protocol === 'mailto:' || protocol === 'tel:') {
+                    return parsed.href;
+                }
+            } catch (err) { }
+            return null;
+        }
+
+        function linkifyPlainUrls(html) {
+            const placeholders = [];
+            const stash = (match) => {
+                const token = `__IMMINOTE_LINKIFY_PLACEHOLDER_${placeholders.length}__`;
+                placeholders.push(match);
+                return token;
+            };
+
+            // Do not linkify inside code/pre blocks or existing links.
+            html = html.replace(/<pre><code>[\s\S]*?<\/code><\/pre>/g, stash);
+            html = html.replace(/<code>[^<]*<\/code>/g, stash);
+            html = html.replace(/<a\s+[^>]*>[\s\S]*?<\/a>/g, stash);
+
+            html = html.replace(/(^|[\s(>])((?:https?:\/\/|www\.)[^\s<]+)/gm, (match, prefix, rawUrl) => {
+                let urlText = rawUrl;
+                let trailing = '';
+                const trailingMatch = urlText.match(/[.,!?;:)]+$/);
+                if (trailingMatch) {
+                    trailing = trailingMatch[0];
+                    urlText = urlText.slice(0, -trailing.length);
+                }
+                if (!urlText) return match;
+
+                const candidate = urlText.startsWith('www.') ? `https://${urlText}` : urlText;
+                const safeHref = sanitizePreviewHref(candidate);
+                if (!safeHref) return match;
+
+                return `${prefix}<a href="${escapeHTML(safeHref)}" target="_blank" rel="noopener noreferrer">${escapeHTML(urlText)}</a>${escapeHTML(trailing)}`;
+            });
+
+            placeholders.forEach((value, index) => {
+                html = html.replace(`__IMMINOTE_LINKIFY_PLACEHOLDER_${index}__`, value);
+            });
+
+            return html;
+        }
+
+        function isDateLevelNote(note) {
+            return note.folderId && note.folderId.startsWith('date:');
+        }
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+
+        function applyFontSize(size) {
+        currentFontSize = size;
+        document.documentElement.style.setProperty('--editor-font-size', FONT_SIZES[size]);
+
+        const btn = document.getElementById('fontSizeBtn');
+            if (btn) {
+                const valueEl = btn.querySelector('.value');
+            if (valueEl) valueEl.textContent = size;
+        }
+
+        localStorage.setItem('imminote_editor_fontsize', size);
+        }
+
+        function cycleFontSize() {
+            const next = FONT_SIZE_ORDER[(FONT_SIZE_ORDER.indexOf(currentFontSize) + 1) % 3];
+            applyFontSize(next);
+        }
+
+        function updateWordCount() {
+            const text = editor.value.trim();
+            if (!text) {
+                wordCountEl.classList.remove('show');
+                return;
+            }
+            const words = text.split(/\s+/).length;
+            const chars = text.length;
+            wordCountEl.textContent = words + ' word' + (words !== 1 ? 's' : '') + ' \u00b7 ' + chars + ' char' + (chars !== 1 ? 's' : '');
+            wordCountEl.classList.add('show');
+        }
+
+        // --- Init ---
+        function init() {
+            // One-time migration: checkpoint_ -> imminote_ localStorage keys
+            const keyMigrations = [
+                ['checkpoint_notes_v2', 'imminote_notes_v2'],
+                ['checkpoint_aliases', 'imminote_aliases'],
+                ['checkpoint_folders', 'imminote_folders'],
+                ['checkpoint_editor_fontsize', 'imminote_editor_fontsize'],
+                ['checkpoint_theme', 'imminote_theme'],
+                ['checkpoint_writing_boundaries', 'imminote_writing_boundaries'],
+                ['checkpoint_sidebar_collapsed', 'imminote_sidebar_collapsed'],
+                ['checkpoint_templates', 'imminote_templates']
+            ];
+            keyMigrations.forEach(([oldKey, newKey]) => {
+                const oldValue = localStorage.getItem(oldKey);
+                if (oldValue !== null) {
+                    if (localStorage.getItem(newKey) === null) {
+                        localStorage.setItem(newKey, oldValue);
+                    }
+                    localStorage.removeItem(oldKey);
+                }
+            });
+
+            // Load notes: try manifest (new format) first, fallback to monolithic (old format)
+            const manifest = parseStoredJSON('imminote_manifest', null, Array.isArray);
+            let needsAnchorNormalization = false;
+            if (manifest) {
+                // New format: metadata from manifest, content loaded on demand
+                notes = manifest.map(m => normalizeNoteRecord({
+                    ...m,
+                    content: ''
+                }, false));
+            } else {
+                // Legacy format: single array with full content
+                notes = parseStoredJSON('imminote_notes_v2', [], Array.isArray).map(n => normalizeNoteRecord(n, true));
+                if (notes.length > 0) {
+                    migrateToPerNoteStorage();
+                }
+            }
+            folderAliases = parseStoredJSON(
+                'imminote_aliases',
+                {},
+                value => value !== null && typeof value === 'object' && !Array.isArray(value)
+            );
+            folders = parseStoredJSON('imminote_folders', [], Array.isArray);
+            deletedNotes = parseStoredJSON('imminote_deleted', [], Array.isArray).map(n => ({
+                ...n, content: '', _contentLoaded: false
+            }));
+            deletedFolders = parseStoredJSON('imminote_deleted_folders', [], Array.isArray);
+            purgeExpiredTrash();
+            needsAnchorNormalization = enforceAnchorConstraints();
+
+            // Restore font size preference
+            const savedFontSize = localStorage.getItem('imminote_editor_fontsize');
+            applyFontSize(savedFontSize && FONT_SIZES[savedFontSize] ? savedFontSize : 'medium');
+
+            // Restore theme preference (FOUC handled by inline script in <head>)
+            updateThemeButton(localStorage.getItem('imminote_theme') || 'dark');
+
+            // Restore writing boundary preference (default: on)
+            const savedWritingBoundaries = localStorage.getItem('imminote_writing_boundaries');
+            applyWritingBoundaries(savedWritingBoundaries !== '0', false);
+            // Restore sidebar collapsed state (auto-collapse on small screens)
+            const isSmallScreen = window.matchMedia('(max-width: 1000px)').matches;
+            if (localStorage.getItem('imminote_sidebar_collapsed') === '1' || isSmallScreen) {
+                sidebarCollapsed = true;
+                document.getElementById('sidebar').classList.add('sidebar-collapsed');
+            }
+            updateBackdrop();
+
+            // Backdrop click closes sidebar
+            document.getElementById('sidebarBackdrop').addEventListener('click', function () {
+                if (!sidebarCollapsed) toggleSidebar();
+            });
+
+            // Update backdrop on resize
+            window.addEventListener('resize', updateBackdrop);
+
+            // Load templates
+            loadTemplates();
+
+            // Migration: HH:MM:SS alias keys ->HH:MM (one-time, idempotent)
+            const migratedAliases = {};
+            let needsMigration = false;
+            Object.keys(folderAliases).forEach(key => {
+                if (/^\d{2}:\d{2}:\d{2}$/.test(key)) {
+                    const minuteKey = key.substring(0, 5);
+                    if (!migratedAliases[minuteKey]) {
+                        migratedAliases[minuteKey] = folderAliases[key];
+                    }
+                    needsMigration = true;
+                } else {
+                    migratedAliases[key] = folderAliases[key];
+                }
+            });
+            if (needsMigration) {
+                folderAliases = migratedAliases;
+            }
+
+            // Migration: strip isDateNote flag (replaced by folderId system)
+            let needsDateNoteMigration = false;
+            notes.forEach(n => {
+                if (n.isDateNote) {
+                    delete n.isDateNote;
+                    needsDateNoteMigration = true;
+                }
+            });
+
+            if (needsMigration || needsDateNoteMigration || needsAnchorNormalization) {
+                saveData();
+            }
+
+            if (notes.length > 0) {
+                notes.sort((a, b) => b.timestamp - a.timestamp);
+                rebuildIndexes();
+                loadNote(notes[0].id);
+            } else {
+                rebuildIndexes();
+                prepareGhostNote();
+            }
+            renderTrash();
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.control-btn') && !e.target.closest('.context-menu')) {
+                    contextMenu.classList.remove('show');
+                }
+                if (!e.target.closest('#ioMenuBtn') && !e.target.closest('#ioMenu')) {
+                    ioMenu.classList.remove('show');
+                }
+                if (!e.target.closest('#templateBtn') && !e.target.closest('#templateMenu') && !templateSaveMode) {
+                    templateMenu.classList.remove('show');
+                }
+            });
+
+            if (searchInput) {
+                const searchClearBtn = document.getElementById('searchClear');
+                const debouncedSearch = debounce(() => {
+                    searchQuery = searchInput.value.toLowerCase();
+                    searchClearBtn.classList.toggle('show', searchInput.value.length > 0);
+                    renderSidebar();
+                }, 150);
+                searchInput.addEventListener('input', debouncedSearch);
+                searchClearBtn.addEventListener('click', () => {
+                    searchInput.value = '';
+                    searchQuery = '';
+                    searchClearBtn.classList.remove('show');
+                    renderSidebar();
+                    searchInput.focus();
+                });
+            }
+
+            if (filterBtn) {
+                filterBtn.addEventListener('click', () => {
+                    filterBookmarked = !filterBookmarked;
+                    filterBtn.classList.toggle('active', filterBookmarked);
+                    renderSidebar();
+                });
+            }
+
+            // Bulk action buttons
+            document.getElementById('bulkDelete').addEventListener('click', () => {
+                performBulkDelete([...selectedNoteIds]);
+            });
+            document.getElementById('bulkBookmark').addEventListener('click', () => {
+                const ids = [...selectedNoteIds];
+                const anyUnbookmarked = ids.some(id => { const n = noteById.get(id); return n && !n.isBookmarked; });
+                ids.forEach(id => { const n = noteById.get(id); if (n) n.isBookmarked = anyUnbookmarked; });
+                saveData();
+                renderSidebar();
+            });
+            document.getElementById('bulkClear').addEventListener('click', () => clearSelection());
+
+            // Trash toggle + empty
+            document.getElementById('trashToggle').addEventListener('click', () => {
+                trashExpanded = !trashExpanded;
+                renderTrash();
+            });
+            document.getElementById('trashEmptyBtn').addEventListener('click', () => {
+                if (deletedNotes.length === 0) return;
+                if (confirm('permanently delete all ' + deletedNotes.length + ' items in the recycle bin?')) {
+                    emptyAllTrash();
+                }
+            });
+
+            // Editor right-click format menu
+            const formatMenu = document.getElementById('formatMenu');
+            editor.addEventListener('contextmenu', (e) => {
+                if (!currentNoteId && !editor.value.trim()) return; // no formatting in empty ghost
+                e.preventDefault();
+
+                formatMenu.style.top = '-9999px';
+                formatMenu.style.left = '-9999px';
+                formatMenu.classList.add('show');
+
+                const menuRect = formatMenu.getBoundingClientRect();
+                const viewportW = window.innerWidth;
+                const viewportH = window.innerHeight;
+
+                let top = e.clientY;
+                let left = e.clientX;
+                if (top + menuRect.height > viewportH) top = e.clientY - menuRect.height;
+                if (left + menuRect.width > viewportW) left = e.clientX - menuRect.width;
+
+                formatMenu.style.top = `${Math.max(0, top)}px`;
+                formatMenu.style.left = `${Math.max(0, left)}px`;
+            });
+
+            formatMenu.querySelectorAll('.format-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    applyFormat(item.getAttribute('data-format'));
+                    formatMenu.classList.remove('show');
+                });
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.format-menu')) {
+                    formatMenu.classList.remove('show');
+                }
+            });
+
+            document.addEventListener('keydown', (e) => {
+                const isMod = e.ctrlKey || e.metaKey;
+
+                if (isMod && e.key === 'n') {
+                    e.preventDefault();
+                    prepareGhostNote();
+                    return;
+                }
+
+                if (isMod && e.key === 's') {
+                    e.preventDefault();
+                    if (currentNoteId) {
+                        indicator.classList.add('show');
+                        setTimeout(() => indicator.classList.remove('show'), 1500);
+                    }
+                    return;
+                }
+
+                if (isMod && e.shiftKey && e.key === 'F') {
+                    e.preventDefault();
+                    if (sidebarCollapsed) toggleSidebar();
+                    searchInput.focus();
+                    searchInput.select();
+                    return;
+                }
+
+                if (isMod && e.shiftKey && e.key === 'E') {
+                    e.preventDefault();
+                    editor.focus();
+                    return;
+                }
+
+                if (isMod && e.key === '\\') {
+                    e.preventDefault();
+                    toggleSidebar();
+                    return;
+                }
+
+                if (isMod && e.key === 'Backspace') {
+                    e.preventDefault();
+                    if (currentNoteId) {
+                        performDelete('file', currentNoteId);
+                    }
+                    return;
+                }
+
+                // Formatting shortcuts (when editor is focused)
+                if (isMod && document.activeElement === editor && !previewMode) {
+                    if (e.key === 'b') { e.preventDefault(); applyFormat('bold'); return; }
+                    if (e.key === 'i') { e.preventDefault(); applyFormat('italic'); return; }
+                    if (e.key === 'h') { e.preventDefault(); applyFormat('heading'); return; }
+                    if (e.key === '`') { e.preventDefault(); applyFormat('code'); return; }
+                    if (e.key === 'k') { e.preventDefault(); applyFormat('link'); return; }
+                    if (e.key === 'l') { e.preventDefault(); applyFormat('list'); return; }
+                }
+
+                // Tab key in editor: insert/remove indent
+                if (e.key === 'Tab' && document.activeElement === editor && !previewMode) {
+                    e.preventDefault();
+                    const start = editor.selectionStart;
+                    const end = editor.selectionEnd;
+                    const val = editor.value;
+                    if (e.shiftKey) {
+                        // Outdent: remove leading spaces on current line
+                        const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+                        const lineContent = val.substring(lineStart);
+                        const spaces = lineContent.match(/^ {1,4}/);
+                        if (spaces) {
+                            editor.value = val.substring(0, lineStart) + val.substring(lineStart + spaces[0].length);
+                            editor.selectionStart = editor.selectionEnd = Math.max(lineStart, start - spaces[0].length);
+                        }
+                    } else {
+                        // Indent: insert 4 spaces
+                        editor.value = val.substring(0, start) + '    ' + val.substring(end);
+                        editor.selectionStart = editor.selectionEnd = start + 4;
+                    }
+                    editor.focus();
+                    editor.dispatchEvent(new Event('input'));
+                    return;
+                }
+
+                // Escape key: dismiss menus, clear selection
+                if (e.key === 'Escape') {
+                    const formatMenu = document.getElementById('formatMenu');
+                    const anyMenuOpen = contextMenu.classList.contains('show') ||
+                        ioMenu.classList.contains('show') ||
+                        formatMenu.classList.contains('show');
+                    contextMenu.classList.remove('show');
+                    ioMenu.classList.remove('show');
+                    formatMenu.classList.remove('show');
+                    if (selectedNoteIds.size > 0) {
+                        clearSelection();
+                    } else if (!anyMenuOpen) {
+                        editor.focus();
+                    }
+                    return;
+                }
+
+                // Keyboard navigation in sidebar
+                if (fileTree.contains(document.activeElement) || document.activeElement === fileTree) {
+                    const items = getVisibleItems();
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        const next = focusedItemIndex < items.length - 1 ? focusedItemIndex + 1 : 0;
+                        setFocusedItem(next);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        const prev = focusedItemIndex > 0 ? focusedItemIndex - 1 : items.length - 1;
+                        setFocusedItem(prev);
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        activateFocusedItem();
+                    }
+                }
+            });
+
+            // --- Import/Export Three-Dot Menu ---
+            ioMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = ioMenu.classList.contains('show');
+                contextMenu.classList.remove('show');
+                document.getElementById('formatMenu').classList.remove('show');
+
+                if (isOpen) {
+                    ioMenu.classList.remove('show');
+                    return;
+                }
+
+                const btnRect = ioMenuBtn.getBoundingClientRect();
+                let top = btnRect.bottom + 4;
+                let left = btnRect.left;
+
+                ioMenu.style.top = '-9999px';
+                ioMenu.style.left = '-9999px';
+                ioMenu.classList.add('show');
+
+                const menuRect = ioMenu.getBoundingClientRect();
+                if (top + menuRect.height > window.innerHeight) top = btnRect.top - menuRect.height - 4;
+                if (left + menuRect.width > window.innerWidth) left = btnRect.right - menuRect.width;
+
+                ioMenu.style.top = `${Math.max(0, top)}px`;
+                ioMenu.style.left = `${Math.max(0, left)}px`;
+            });
+
+            document.getElementById('ioExport').addEventListener('click', () => {
+                ioMenu.classList.remove('show');
+                ensureAllContentLoaded();
+                const data = {
+                    version: 'imminote-backup-v2',
+                    exportedAt: new Date().toISOString(),
+                    notes: notes.map(n => ({
+                        id: n.id,
+                        timestamp: n.timestamp,
+                        content: n.content,
+                        customTitle: n.customTitle,
+                        isBookmarked: n.isBookmarked,
+                        folderId: n.folderId,
+                        anchoredDateKey: n.anchoredDateKey,
+                        anchorOriginFolderId: n.anchorOriginFolderId
+                    })),
+                    folderAliases: folderAliases,
+                    folders: folders,
+                    deletedNotes: deletedNotes.map(n => {
+                        ensureContentLoaded(n);
+                        return {
+                            id: n.id, timestamp: n.timestamp, content: n.content,
+                            customTitle: n.customTitle, isBookmarked: n.isBookmarked,
+                            folderId: n.folderId, deletedAt: n.deletedAt
+                        };
+                    }),
+                    deletedFolders: deletedFolders
+                };
+                const json = JSON.stringify(data, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `imminote-backup-${new Date().toLocaleDateString('en-CA')}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
+            document.getElementById('ioImport').addEventListener('click', () => {
+                ioMenu.classList.remove('show');
+                importFileInput.click();
+            });
+
+            document.getElementById('ioToggleBoundaries').addEventListener('click', () => {
+                toggleWritingBoundaries();
+            });
+            document.getElementById('ioToggleTheme').addEventListener('click', () => {
+                toggleTheme();
+            });
+            document.getElementById('ioNewFolder').addEventListener('click', () => {
+                ioMenu.classList.remove('show');
+                const newFolder = {
+                    id: generateId(),
+                    name: "New Folder",
+                    parentId: null,
+                    type: 'custom',
+                    sortOrder: Date.now(),
+                    isBookmarked: false
+                };
+                folders.push(newFolder);
+                openFolders.add(newFolder.id);
+                saveData();
+                indexAddFolder(newFolder);
+                renderSidebar();
+            });
+
+            importFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+
+                        if (!data.notes || !Array.isArray(data.notes)) {
+                            alert('Invalid backup file: missing notes array.');
+                            return;
+                        }
+
+                        const replace = confirm(
+                            'Import mode:\n\nOK = REPLACE all current data\nCancel = MERGE with existing data'
+                        );
+
+                        if (replace) {
+                            // Remove old per-note storage
+                            notes.forEach(n => removeNoteStorage(n.id));
+                            deletedNotes.forEach(n => removeNoteStorage(n.id));
+                            notes = data.notes.map(n => normalizeNoteRecord(n, true));
+                            folderAliases = data.folderAliases || {};
+                            folders = data.folders || [];
+                            deletedNotes = (data.deletedNotes || []).map(n => ({ ...n, _contentLoaded: !!n.content }));
+                            deletedFolders = data.deletedFolders || [];
+                        } else {
+                            const existingIds = new Set(notes.map(n => n.id));
+                            const newNotes = data.notes
+                                .filter(n => !existingIds.has(n.id))
+                                .map(n => normalizeNoteRecord(n, true));
+                            notes = notes.concat(newNotes);
+                            if (data.folderAliases) {
+                                Object.assign(folderAliases, data.folderAliases);
+                            }
+                            if (data.folders) {
+                                const existingFolderIds = new Set(folders.map(f => f.id));
+                                const newFolders = data.folders.filter(f => !existingFolderIds.has(f.id));
+                                folders = folders.concat(newFolders);
+                            }
+                            if (data.deletedNotes) {
+                                const existingDeletedIds = new Set(deletedNotes.map(n => n.id));
+                                data.deletedNotes.filter(n => !existingDeletedIds.has(n.id) && !existingIds.has(n.id)).forEach(n => {
+                                    deletedNotes.push({ ...n, _contentLoaded: !!n.content });
+                                });
+                            }
+                            if (data.deletedFolders) {
+                                const existingDFIds = new Set(deletedFolders.map(f => f.id));
+                                data.deletedFolders.filter(f => !existingDFIds.has(f.id)).forEach(f => deletedFolders.push(f));
+                            }
+                        }
+
+                        enforceAnchorConstraints();
+
+                        // Write per-note storage for imported notes
+                        notes.forEach(n => {
+                            n._contentLoaded = true;
+                            localStorage.setItem('imminote_n_' + n.id, n.content);
+                        });
+                        // Write per-note storage for imported deleted notes
+                        deletedNotes.forEach(n => {
+                            if (n.content) {
+                                localStorage.setItem('imminote_n_' + n.id, n.content);
+                            }
+                        });
+                        notes.sort((a, b) => b.timestamp - a.timestamp);
+                        saveData();
+                        saveDeletedData();
+                        purgeExpiredTrash();
+                        rebuildIndexes();
+                        renderSidebar();
+                        renderTrash();
+
+                        if (notes.length > 0) {
+                            loadNote(notes[0].id);
+                        } else {
+                            prepareGhostNote();
+                        }
+                    } catch (err) {
+                        alert('Failed to parse backup file: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+                importFileInput.value = '';
+            });
+        }
+
+        // --- Core Logic ---
+        function prepareGhostNote() {
+            currentNoteId = null;
+            editor.value = "";
+            editor.readOnly = false;
+            editor.placeholder = GHOST_PLACEHOLDERS[Math.floor(Math.random() * GHOST_PLACEHOLDERS.length)];
+            document.getElementById('toolbarTrash').classList.remove('show');
+
+            // Exit preview mode if active
+            if (previewMode) {
+                previewMode = false;
+                editor.style.display = '';
+                document.getElementById('preview').style.display = 'none';
+                const toggleBtn = document.getElementById('previewToggle');
+                if (toggleBtn) { toggleBtn.innerHTML = '<span class="tool-label-long">markdown preview</span><span class="tool-label-short">preview</span>'; toggleBtn.classList.remove('active'); }
+            }
+
+            clearSelection();
+            editor.focus();
+            wordCountEl.classList.remove('show');
+            document.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.active-parent').forEach(el => el.classList.remove('active-parent'));
+        }
+
+        function createRealNoteFromGhost() {
+            const now = new Date();
+            const newNote = {
+                id: now.getTime(),
+                timestamp: now.getTime(),
+                content: editor.value,
+                customTitle: null,
+                isBookmarked: false,
+                folderId: null,
+                anchoredDateKey: null,
+                anchorOriginFolderId: null,
+                _contentLoaded: true
+            };
+            notes.unshift(newNote);
+            currentNoteId = newNote.id;
+            saveNoteContent(newNote);
+            saveManifest();
+            indexAdd(newNote);
+
+            if (searchQuery || filterBookmarked) {
+                searchQuery = "";
+                searchInput.value = "";
+                filterBookmarked = false;
+                filterBtn.classList.remove('active');
+            }
+
+            const dateKey = now.toLocaleDateString('en-CA');
+            const timeKey = getMinuteKey(now);
+            openFolders.add(dateKey);
+            openFolders.add(`${dateKey}|${timeKey}`);
+
+            justCreatedNoteId = newNote.id;
+            justCreatedFolderId = `${dateKey}|${timeKey}`;
+            renderSidebar();
+            loadNote(newNote.id);
+        }
+
+        function loadNote(id) {
+            currentNoteId = id;
+            const note = noteById.get(id);
+
+            contextMenu.classList.remove('show');
+            editor.readOnly = false;
+
+            if (note) {
+                ensureContentLoaded(note);
+                editor.value = note.content;
+                document.getElementById('toolbarTrash').classList.add('show');
+
+                if (previewMode) {
+                    document.getElementById('preview').innerHTML = parseMarkdown(note.content);
+                }
+
+                if (isDateLevelNote(note)) {
+                    // Date-level direct note ->just open the date folder
+                    openFolders.add(note.folderId.substring(5));
+                } else if (note.folderId) {
+                    // Custom folder ->open the folder chain up to root
+                    let fid = note.folderId;
+                    while (fid) {
+                        openFolders.add(fid);
+                        const f = folderById.get(fid);
+                        fid = f ? f.parentId : null;
+                    }
+                } else {
+                    // Temporal note ->open date + time folders
+                    const d = new Date(note.timestamp);
+                    const dateKey = d.toLocaleDateString('en-CA');
+                    const timeKey = getMinuteKey(d);
+                    openFolders.add(dateKey);
+                    openFolders.add(`${dateKey}|${timeKey}`);
+                }
+
+                renderSidebar();
+                editor.focus();
+                updateWordCount();
+            }
+        }
+
+        // --- Incremental Save System ---
+        // Notes are stored individually: imminote_n_{id} = content string
+        // Manifest stores metadata only: imminote_manifest = [{id, timestamp, customTitle, isBookmarked, folderId, anchoredDateKey, anchorOriginFolderId}, ...]
+
+        function saveNoteContent(note) {
+            localStorage.setItem('imminote_n_' + note.id, note.content);
+        }
+
+        function removeNoteStorage(noteId) {
+            localStorage.removeItem('imminote_n_' + noteId);
+        }
+
+        function saveManifest() {
+            const manifest = notes.map(n => ({
+                id: n.id,
+                timestamp: n.timestamp,
+                customTitle: n.customTitle,
+                isBookmarked: n.isBookmarked,
+                folderId: n.folderId,
+                anchoredDateKey: n.anchoredDateKey,
+                anchorOriginFolderId: n.anchorOriginFolderId
+            }));
+            localStorage.setItem('imminote_manifest', JSON.stringify(manifest));
+        }
+
+        function saveMetadata() {
+            saveManifest();
+            localStorage.setItem('imminote_aliases', JSON.stringify(folderAliases));
+            localStorage.setItem('imminote_folders', JSON.stringify(folders));
+        }
+
+        function saveData() {
+            // Full save: manifest + aliases + folders (content saved per-note)
+            saveMetadata();
+        }
+
+        function saveDeletedData() {
+            localStorage.setItem('imminote_deleted', JSON.stringify(deletedNotes.map(n => ({
+                id: n.id, timestamp: n.timestamp, customTitle: n.customTitle,
+                isBookmarked: n.isBookmarked, folderId: n.folderId,
+                deletedAt: n.deletedAt
+            }))));
+            localStorage.setItem('imminote_deleted_folders', JSON.stringify(deletedFolders));
+        }
+
+        function purgeExpiredTrash() {
+            const cutoff = Date.now() - (14 * 86400000);
+            const expired = deletedNotes.filter(n => n.deletedAt < cutoff);
+            if (expired.length === 0) return;
+            expired.forEach(n => removeNoteStorage(n.id));
+            deletedNotes = deletedNotes.filter(n => n.deletedAt >= cutoff);
+            cleanupDeletedFolders();
+            saveDeletedData();
+        }
+
+        function cleanupDeletedFolders() {
+            if (deletedFolders.length === 0) return;
+            const usedFolderIds = new Set();
+            deletedNotes.forEach(n => { if (n.folderId) usedFolderIds.add(n.folderId); });
+            const keepFolder = (fId) => {
+                if (usedFolderIds.has(fId)) return true;
+                return deletedFolders.some(f => f.parentId === fId && keepFolder(f.id));
+            };
+            deletedFolders = deletedFolders.filter(f => keepFolder(f.id));
+        }
+
+        function moveToTrash(notesToTrash, foldersToTrash) {
+            const now = Date.now();
+            notesToTrash.forEach(n => {
+                ensureContentLoaded(n);
+                if (n.anchoredDateKey) {
+                    n.content = 'anchored note - ' + n.content;
+                    saveNoteContent(n);
+                    n.anchoredDateKey = null;
+                    n.anchorOriginFolderId = null;
+                }
+                n.deletedAt = now;
+                deletedNotes.push(n);
+            });
+            if (foldersToTrash && foldersToTrash.length > 0) {
+                foldersToTrash.forEach(f => {
+                    if (!deletedFolders.some(df => df.id === f.id)) {
+                        deletedFolders.push({ ...f });
+                    }
+                });
+            }
+            saveDeletedData();
+        }
+
+        function restoreFromTrash(noteId) {
+            const idx = deletedNotes.findIndex(n => n.id === noteId);
+            if (idx === -1) return;
+            const note = deletedNotes[idx];
+            ensureContentLoaded(note);
+            delete note.deletedAt;
+            notes.push(note);
+            notes.sort((a, b) => b.timestamp - a.timestamp);
+            deletedNotes.splice(idx, 1);
+            cleanupDeletedFolders();
+            if (note.folderId && !note.folderId.startsWith('date:') && !folderById.has(note.folderId)) {
+                const df = deletedFolders.find(f => f.id === note.folderId);
+                if (df) {
+                    restoreDeletedFolderChain(df);
+                } else {
+                    note.folderId = null;
+                }
+            }
+            saveNoteContent(note);
+            saveData();
+            saveDeletedData();
+            rebuildIndexes();
+            renderSidebar();
+            renderTrash();
+        }
+
+        function restoreDeletedFolderChain(folder) {
+            if (folder.parentId) {
+                const parent = deletedFolders.find(f => f.id === folder.parentId);
+                if (parent && !folderById.has(parent.id) && !folders.some(f => f.id === parent.id)) {
+                    restoreDeletedFolderChain(parent);
+                }
+            }
+            if (!folders.some(f => f.id === folder.id)) {
+                folders.push({ ...folder });
+            }
+            deletedFolders = deletedFolders.filter(f => f.id !== folder.id);
+        }
+
+        function permanentDeleteFromTrash(type, id) {
+            if (type === 'file') {
+                deletedNotes = deletedNotes.filter(n => n.id !== id);
+                removeNoteStorage(id);
+            } else if (type === 'folder') {
+                const folderIds = new Set();
+                const collectTrashFolders = (fid) => {
+                    folderIds.add(fid);
+                    deletedFolders.filter(f => f.parentId === fid).forEach(f => collectTrashFolders(f.id));
+                };
+                collectTrashFolders(id);
+                deletedNotes.filter(n => n.folderId && folderIds.has(n.folderId)).forEach(n => removeNoteStorage(n.id));
+                deletedNotes = deletedNotes.filter(n => !n.folderId || !folderIds.has(n.folderId));
+                deletedFolders = deletedFolders.filter(f => !folderIds.has(f.id));
+            }
+            cleanupDeletedFolders();
+            saveDeletedData();
+            renderTrash();
+        }
+
+        function emptyAllTrash() {
+            deletedNotes.forEach(n => removeNoteStorage(n.id));
+            deletedNotes = [];
+            deletedFolders = [];
+            saveDeletedData();
+            renderTrash();
+        }
+
+        function ensureContentLoaded(note) {
+            if (!note._contentLoaded) {
+                note.content = localStorage.getItem('imminote_n_' + note.id) || '';
+                note._contentLoaded = true;
+            }
+        }
+
+        function ensureAllContentLoaded() {
+            notes.forEach(n => ensureContentLoaded(n));
+        }
+
+        function migrateToPerNoteStorage() {
+            // One-time migration from monolithic imminote_notes_v2 to per-note keys + manifest
+            notes.forEach(note => {
+                localStorage.setItem('imminote_n_' + note.id, note.content);
+                note._contentLoaded = true;
+            });
+            saveManifest();
+            localStorage.removeItem('imminote_notes_v2');
+        }
+
+        function rebuildIndexes() {
+            noteById = new Map();
+            notesByDate = new Map();
+            notesByFolder = new Map();
+            notesByFolderId = new Map();
+            notesByDateDirect = new Map();
+            folderById = new Map();
+            childFolders = new Map();
+
+            notes.forEach(note => {
+                noteById.set(note.id, note);
+                if (note.folderId && note.folderId.startsWith('date:')) {
+                    // Date-level direct note ->lives directly under a date folder
+                    const dateKey = note.folderId.substring(5);
+                    if (!notesByDate.has(dateKey)) notesByDate.set(dateKey, []);
+                    notesByDate.get(dateKey).push(note);
+                    if (!notesByDateDirect.has(dateKey)) notesByDateDirect.set(dateKey, []);
+                    notesByDateDirect.get(dateKey).push(note);
+                } else if (note.folderId) {
+                    // Custom folder note
+                    if (!notesByFolderId.has(note.folderId)) notesByFolderId.set(note.folderId, []);
+                    notesByFolderId.get(note.folderId).push(note);
+                } else {
+                    // Temporal note ->group by date and time
+                    const d = new Date(note.timestamp);
+                    const dateKey = d.toLocaleDateString('en-CA');
+                    const timeKey = getMinuteKey(d);
+                    const compoundKey = dateKey + '|' + timeKey;
+                    if (!notesByDate.has(dateKey)) notesByDate.set(dateKey, []);
+                    notesByDate.get(dateKey).push(note);
+                    if (!notesByFolder.has(compoundKey)) notesByFolder.set(compoundKey, []);
+                    notesByFolder.get(compoundKey).push(note);
+                }
+            });
+
+            folders.forEach(folder => {
+                folderById.set(folder.id, folder);
+                const pid = folder.parentId || '__root__';
+                if (!childFolders.has(pid)) childFolders.set(pid, []);
+                childFolders.get(pid).push(folder);
+            });
+        }
+
+        // --- Incremental Index Helpers ---
+        function _mapPush(map, key, item) {
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(item);
+        }
+
+        function _mapRemove(map, key, itemId) {
+            const arr = map.get(key);
+            if (!arr) return;
+            const idx = arr.findIndex(x => x.id === itemId);
+            if (idx !== -1) arr.splice(idx, 1);
+            if (arr.length === 0) map.delete(key);
+        }
+
+        function _indexNoteIntoGroups(note) {
+            if (note.folderId && note.folderId.startsWith('date:')) {
+                const dateKey = note.folderId.substring(5);
+                _mapPush(notesByDate, dateKey, note);
+                _mapPush(notesByDateDirect, dateKey, note);
+            } else if (note.folderId) {
+                _mapPush(notesByFolderId, note.folderId, note);
+            } else {
+                const d = new Date(note.timestamp);
+                const dateKey = d.toLocaleDateString('en-CA');
+                const timeKey = getMinuteKey(d);
+                _mapPush(notesByDate, dateKey, note);
+                _mapPush(notesByFolder, dateKey + '|' + timeKey, note);
+            }
+        }
+
+        function _removeNoteFromGroups(note) {
+            if (note.folderId && note.folderId.startsWith('date:')) {
+                const dateKey = note.folderId.substring(5);
+                _mapRemove(notesByDate, dateKey, note.id);
+                _mapRemove(notesByDateDirect, dateKey, note.id);
+            } else if (note.folderId) {
+                _mapRemove(notesByFolderId, note.folderId, note.id);
+            } else {
+                const d = new Date(note.timestamp);
+                const dateKey = d.toLocaleDateString('en-CA');
+                const timeKey = getMinuteKey(d);
+                _mapRemove(notesByDate, dateKey, note.id);
+                _mapRemove(notesByFolder, dateKey + '|' + timeKey, note.id);
+            }
+        }
+
+        function indexAdd(note) {
+            noteById.set(note.id, note);
+            _indexNoteIntoGroups(note);
+        }
+
+        function indexRemove(note) {
+            noteById.delete(note.id);
+            _removeNoteFromGroups(note);
+        }
+
+        function indexUpdate(note, oldFolderId, oldTimestamp) {
+            if (oldFolderId !== note.folderId || oldTimestamp !== note.timestamp) {
+                _removeNoteFromGroups({ ...note, folderId: oldFolderId, timestamp: oldTimestamp, id: note.id });
+                _indexNoteIntoGroups(note);
+            }
+        }
+
+        function indexAddFolder(folder) {
+            folderById.set(folder.id, folder);
+            const pid = folder.parentId || '__root__';
+            _mapPush(childFolders, pid, folder);
+        }
+
+        function indexRemoveFolder(folder) {
+            folderById.delete(folder.id);
+            const pid = folder.parentId || '__root__';
+            _mapRemove(childFolders, pid, folder.id);
+        }
+
+        // --- Context Menu Logic ---
+        function showContextMenu(e, type, id, isTrash) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const ctxSaveAs = document.getElementById('ctxSaveAs');
+            const ctxNewFolder = document.getElementById('ctxNewFolder');
+            const ctxNewNote = document.getElementById('ctxNewNote');
+            const ctxRestore = document.getElementById('ctxRestore');
+            const ctxRename = document.getElementById('ctxRename');
+            const ctxDivider = document.getElementById('ctxDivider');
+
+            // Hide all optional items first
+            if (ctxAnchor) ctxAnchor.style.display = 'none';
+            ctxSaveAs.style.display = 'none';
+            ctxNewFolder.style.display = 'none';
+            ctxNewNote.style.display = 'none';
+            ctxRestore.style.display = 'none';
+            ctxRename.style.display = 'none';
+            ctxDivider.style.display = '';
+
+            if (isTrash) {
+                // Trash items: only show restore + delete
+                ctxRestore.style.display = 'flex';
+                ctxDivider.style.display = 'none';
+            } else if (type === 'file') {
+                ctxSaveAs.style.display = 'flex';
+                ctxRename.style.display = 'flex';
+                const note = noteById.get(id);
+                if (ctxAnchor && note && canAnchorNote(note)) {
+                    ctxAnchor.style.display = 'flex';
+                    if (ctxAnchorLabel) {
+                        ctxAnchorLabel.textContent = isAnchoredNote(note) ? 'unanchor note' : 'anchor note';
+                    }
+                }
+            } else if (type === 'folder') {
+                ctxRename.style.display = 'flex';
+                if (folderById.has(id)) {
+                    ctxNewFolder.style.display = 'flex';
+                    ctxNewNote.style.display = 'flex';
+                } else if (id.length === 10 && !id.includes('|')) {
+                    ctxNewNote.style.display = 'flex';
+                } else {
+                    ctxNewNote.style.display = 'flex';
+                }
+            }
+            const rect = e.target.getBoundingClientRect();
+
+            // Show off-screen to measure dimensions
+            contextMenu.style.top = '-9999px';
+            contextMenu.style.left = '-9999px';
+            contextMenu.classList.add('show');
+
+            const menuRect = contextMenu.getBoundingClientRect();
+            const viewportW = window.innerWidth;
+            const viewportH = window.innerHeight;
+
+            let top = rect.bottom;
+            let left = rect.left;
+
+            if (top + menuRect.height > viewportH) top = rect.top - menuRect.height;
+            if (left + menuRect.width > viewportW) left = rect.right - menuRect.width;
+
+            top = Math.max(0, Math.min(top, viewportH - menuRect.height));
+            left = Math.max(0, Math.min(left, viewportW - menuRect.width));
+
+            contextMenu.style.top = `${top}px`;
+            contextMenu.style.left = `${left}px`;
+            contextTarget = { type, id, isTrash: !!isTrash };
+        }
+
+        // --- Features Handlers ---
+
+        document.getElementById('ctxSaveAs').onclick = () => {
+            if (!contextTarget || contextTarget.type !== 'file') return;
+            const note = noteById.get(contextTarget.id);
+            if (note) {
+                ensureContentLoaded(note);
+                const date = new Date(note.timestamp);
+                const dateStr = date.toLocaleDateString('en-CA');
+                const timeStr = date.toLocaleTimeString('en-GB').replace(/:/g, '-');
+                let titleSlug = getNoteTitle(note).replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const filename = `${dateStr}_${timeStr}_${titleSlug}.txt`;
+
+                const blob = new Blob([note.content], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
+            contextMenu.classList.remove('show');
+        };
+
+        document.getElementById('ctxNewFolder').onclick = () => {
+            if (!contextTarget) return;
+
+            const newFolder = {
+                id: generateId(),
+                name: "New Folder",
+                parentId: null,
+                type: 'custom',
+                sortOrder: Date.now(),
+                isBookmarked: false
+            };
+
+            // If right-clicked on a custom folder, nest inside it
+            if (contextTarget.type === 'folder' && folderById.has(contextTarget.id)) {
+                newFolder.parentId = contextTarget.id;
+            }
+            // For temporal folders or files, create at root level (parentId stays null)
+
+            folders.push(newFolder);
+            openFolders.add(newFolder.id);
+            if (newFolder.parentId) openFolders.add(newFolder.parentId);
+
+            saveData();
+            indexAddFolder(newFolder);
+            renderSidebar();
+            contextMenu.classList.remove('show');
+        };
+
+        document.getElementById('ctxNewNote').onclick = () => {
+            if (!contextTarget || contextTarget.type !== 'folder') return;
+            const targetId = contextTarget.id;
+
+            if (folderById.has(targetId)) {
+                addNoteToFolder(targetId, 'custom');
+            } else if (targetId.length === 10 && !targetId.includes('|')) {
+                addNoteToFolder(targetId, 'date');
+            } else {
+                addNoteToFolder(targetId, 'time');
+            }
+            contextMenu.classList.remove('show');
+        };
+
+        if (ctxAnchor) {
+            ctxAnchor.onclick = () => {
+                if (!contextTarget || contextTarget.type !== 'file') return;
+                const note = noteById.get(contextTarget.id);
+                if (!note || !canAnchorNote(note)) return;
+                setNoteAnchored(note, !isAnchoredNote(note));
+                saveData();
+                renderSidebar();
+                contextMenu.classList.remove('show');
+            };
+        }
+
+        // --- Standard Handlers ---
+
+        document.getElementById('ctxDelete').onclick = () => {
+            if (!contextTarget) return;
+            const { type, id, isTrash } = contextTarget;
+            if (isTrash) {
+                permanentDeleteFromTrash(type === 'file' ? 'file' : 'folder', id);
+            } else {
+                performDelete(type === 'file' ? 'file' : 'folder', id);
+            }
+            contextMenu.classList.remove('show');
+        };
+
+        document.getElementById('ctxRestore').onclick = () => {
+            if (!contextTarget || !contextTarget.isTrash) return;
+            const { type, id } = contextTarget;
+            if (type === 'file') {
+                restoreFromTrash(id);
+            } else if (type === 'folder') {
+                // Restore all notes in this trash folder
+                const folderIds = new Set();
+                const collectTrashFolderIds = (fid) => {
+                    folderIds.add(fid);
+                    deletedFolders.filter(f => f.parentId === fid).forEach(f => collectTrashFolderIds(f.id));
+                };
+                collectTrashFolderIds(id);
+                const notesToRestore = deletedNotes.filter(n => n.folderId && folderIds.has(n.folderId)).map(n => n.id);
+                notesToRestore.forEach(nId => restoreFromTrash(nId));
+            }
+            contextMenu.classList.remove('show');
+        };
+
+        function startRename(type, id) {
+            // Select correct element based on ID type
+            let textEl;
+            if (type === 'file') {
+                textEl = document.querySelector(`#file-${id} .item-text`);
+            } else {
+                // Folder: use data attribute selector works for both simple and compound IDs
+                textEl = document.querySelector(`[data-folder-id="${id}"] .item-text`);
+            }
+
+            if (!textEl) return;
+
+            const currentText = textEl.innerText;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'rename-input';
+            input.value = currentText;
+            textEl.style.display = 'none';
+            textEl.parentNode.insertBefore(input, textEl);
+            input.focus();
+
+            const commitRename = () => {
+                const newName = input.value.trim();
+                if (newName && newName !== currentText) {
+                    if (type === 'file') {
+                        const note = noteById.get(id);
+                        if (note) note.customTitle = newName;
+                    } else if (folderById.has(id)) {
+                        // Custom folder ->rename directly
+                        const folder = folderById.get(id);
+                        if (folder) folder.name = newName;
+                    } else {
+                        // Temporal folder ->use alias
+                        const realId = id.includes('|') ? id.split('|')[1] : id;
+                        folderAliases[realId] = newName;
+                    }
+                    saveData();
+                }
+                renderSidebar();
+            };
+            input.addEventListener('blur', commitRename);
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+        }
+
+        document.getElementById('ctxRename').onclick = () => {
+            if (!contextTarget) return;
+            const { type, id } = contextTarget;
+            contextMenu.classList.remove('show');
+            startRename(type, id);
+        };
+
+        function toggleBookmark(e, type, id) {
+            e.stopPropagation();
+            if (type === 'file') {
+                const note = noteById.get(id);
+                if (note) note.isBookmarked = !note.isBookmarked;
+            } else {
+                const notesInFolder = getNotesInFolder(id);
+                const anyUnbookmarked = notesInFolder.some(n => !n.isBookmarked);
+                notesInFolder.forEach(n => n.isBookmarked = anyUnbookmarked);
+                // Toggle custom folder's own bookmark
+                if (folderById.has(id)) {
+                    const folder = folderById.get(id);
+                    folder.isBookmarked = anyUnbookmarked;
+                }
+            }
+            saveData();
+
+            // Pulse animation on star button
+            const starEl = e.target.closest('.star-btn');
+            if (starEl) {
+                starEl.classList.remove('pulse');
+                void starEl.offsetWidth; // reflow
+                starEl.classList.add('pulse');
+                starEl.addEventListener('animationend', () => starEl.classList.remove('pulse'), { once: true });
+            }
+
+            // Snapshot open states (using whatever IDs are currently in the DOM)
+            document.querySelectorAll('.tree-item.open').forEach(el => {
+                const folderId = el.querySelector('.tree-header').getAttribute('data-folder-id');
+                if (folderId) openFolders.add(folderId);
+            });
+            renderSidebar();
+        }
+
+        function getNotesInFolder(folderId) {
+            // Custom folder
+            if (folderById.has(folderId)) return notesByFolderId.get(folderId) || [];
+            // Temporal: time folder (compound key with pipe)
+            if (folderId.includes('|')) return notesByFolder.get(folderId) || [];
+            // Temporal: date folder
+            return notesByDate.get(folderId) || [];
+        }
+
+        function addNoteToFolder(folderId, folderType) {
+            const now = new Date();
+            let newTimestamp = now.getTime();
+            let noteFolderId = null;
+
+            if (folderType === 'custom') {
+                noteFolderId = folderId;
+            } else if (folderType === 'date') {
+                // Date-level direct note ->lives directly under date folder
+                noteFolderId = 'date:' + folderId;
+            } else if (folderType === 'time') {
+                // Create temporal note in target time folder
+                const [datePart, timePart] = folderId.split('|');
+                const baseTime = new Date(datePart + 'T' + timePart + ':00').getTime();
+                const existing = getNotesInFolder(folderId);
+                const maxTs = existing.length > 0 ? Math.max(...existing.map(n => n.timestamp)) : baseTime;
+                newTimestamp = maxTs + 1;
+            }
+
+            const newNote = {
+                id: newTimestamp,
+                timestamp: newTimestamp,
+                content: "",
+                customTitle: null,
+                isBookmarked: false,
+                folderId: noteFolderId,
+                anchoredDateKey: null,
+                anchorOriginFolderId: null,
+                _contentLoaded: true
+            };
+
+            notes.unshift(newNote);
+
+            // Clear search/filter so the new note is visible
+            if (searchQuery || filterBookmarked) {
+                searchQuery = "";
+                searchInput.value = "";
+                filterBookmarked = false;
+                filterBtn.classList.remove('active');
+            }
+
+            if (noteFolderId && noteFolderId.startsWith('date:')) {
+                // Date-level note: just open the date folder
+                openFolders.add(noteFolderId.substring(5));
+            } else if (noteFolderId) {
+                // Open custom folder chain
+                let fid = noteFolderId;
+                while (fid) {
+                    openFolders.add(fid);
+                    const f = folderById.get(fid);
+                    fid = f ? f.parentId : null;
+                }
+            } else {
+                // Open temporal folders
+                const d = new Date(newTimestamp);
+                const dateKey = d.toLocaleDateString('en-CA');
+                const timeKey = getMinuteKey(d);
+                openFolders.add(dateKey);
+                openFolders.add(dateKey + '|' + timeKey);
+            }
+
+            justCreatedNoteId = newNote.id;
+            saveNoteContent(newNote);
+            saveData();
+            indexAdd(newNote);
+            renderSidebar();
+            loadNote(newNote.id);
+        }
+
+        function clearAllDragOver() {
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        function highlightDropTargets(dragType) {
+            let selector = '';
+            if (dragType === 'note') {
+                selector = '[data-drop-type="date"], [data-drop-type="time"], [data-drop-type="custom"]';
+            } else if (dragType === 'timeFolder') {
+                selector = '[data-drop-type="date"]';
+            } else if (dragType === 'customFolder') {
+                selector = '[data-drop-type="custom"]';
+            }
+            if (selector) {
+                document.querySelectorAll(selector).forEach(el => el.classList.add('drop-target'));
+            }
+        }
+
+        function clearDropTargets() {
+            document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+        }
+
+        function attachTodayDropHandlers(element) {
+            element.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                element.classList.add('drag-over');
+            });
+            element.addEventListener('dragleave', () => {
+                element.classList.remove('drag-over');
+            });
+            element.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                element.classList.remove('drag-over');
+                try {
+                    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                    const todayKey = new Date().toLocaleDateString('en-CA');
+                    handleDrop(data, todayKey, 'date');
+                } catch (err) { }
+            });
+        }
+
+        function handleDrop(data, targetId, targetType) {
+            if (data.type === 'note') {
+                // Handle bulk move if noteIds array present
+                const ids = Array.isArray(data.noteIds) && data.noteIds.length > 0 ? data.noteIds : [data.noteId];
+                ids.forEach(nId => handleNoteDropCore(nId, targetId, targetType));
+                clearSelection();
+                saveData();
+                rebuildIndexes();
+                renderSidebar();
+                return;
+            } else if (data.type === 'timeFolder') {
+                handleTimeFolderDrop(data.folderId, targetId, targetType);
+            } else if (data.type === 'customFolder') {
+                handleCustomFolderDrop(data.folderId, targetId, targetType);
+            }
+        }
+
+        function handleNoteDropCore(noteId, targetId, targetType) {
+            const note = noteById.get(noteId);
+            if (!note || isAnchoredNote(note)) return;
+
+            if (targetType === 'custom') {
+                if (note.folderId === targetId) return;
+                note.folderId = targetId;
+                let fid = targetId;
+                while (fid) {
+                    openFolders.add(fid);
+                    const f = folderById.get(fid);
+                    fid = f ? f.parentId : null;
+                }
+            } else if (targetType === 'time') {
+                const [datePart, timePart] = targetId.split('|');
+                const baseTime = new Date(datePart + 'T' + timePart + ':00').getTime();
+                const existing = getNotesInFolder(targetId);
+                const maxTs = existing.length > 0 ? Math.max(...existing.map(n => n.timestamp)) : baseTime;
+
+                if (!note.folderId) {
+                    const oldDate = new Date(note.timestamp);
+                    const newDate = new Date(maxTs + 1);
+                    if (oldDate.toLocaleDateString('en-CA') === newDate.toLocaleDateString('en-CA') &&
+                        getMinuteKey(oldDate) === getMinuteKey(newDate)) {
+                        return;
+                    }
+                }
+
+                note.timestamp = maxTs + 1;
+                note.folderId = null;
+                const dk = datePart;
+                openFolders.add(dk);
+                openFolders.add(targetId);
+            } else if (targetType === 'date') {
+                const newFolderId = 'date:' + targetId;
+                if (note.folderId === newFolderId) return;
+                note.folderId = newFolderId;
+                openFolders.add(targetId);
+            }
+        }
+
+        function handleNoteDrop(noteId, targetId, targetType) {
+            const note = noteById.get(noteId);
+            const oldFolderId = note ? note.folderId : null;
+            const oldTimestamp = note ? note.timestamp : 0;
+            handleNoteDropCore(noteId, targetId, targetType);
+            if (note) indexUpdate(note, oldFolderId, oldTimestamp);
+            saveData();
+            renderSidebar();
+        }
+
+        function handleCustomFolderDrop(sourceFolderId, targetId, targetType) {
+            const folder = folderById.get(sourceFolderId);
+            if (!folder) return;
+
+            const oldParentId = folder.parentId;
+
+            if (targetType === 'custom') {
+                // Move folder into another custom folder
+                if (sourceFolderId === targetId) return;
+                // Prevent circular: don't allow dropping into own descendant
+                let fid = targetId;
+                while (fid) {
+                    if (fid === sourceFolderId) return;
+                    const f = folderById.get(fid);
+                    fid = f ? f.parentId : null;
+                }
+                folder.parentId = targetId;
+            } else {
+                // Drop on root area or temporal folder ->move to root
+                folder.parentId = null;
+            }
+
+            // Update folder index (re-parent)
+            const oldPid = oldParentId || '__root__';
+            const newPid = folder.parentId || '__root__';
+            _mapRemove(childFolders, oldPid, folder.id);
+            _mapPush(childFolders, newPid, folder);
+
+            saveData();
+            renderSidebar();
+        }
+
+        function handleTimeFolderDrop(sourceFolderId, targetId, targetType) {
+            if (targetType !== 'date') return;
+
+            const [sourceDate, sourceTime] = sourceFolderId.split('|');
+            const targetDate = targetId;
+
+            if (sourceDate === targetDate) return;
+
+            const folderNotes = getNotesInFolder(sourceFolderId);
+            if (folderNotes.length === 0) return;
+
+            folderNotes.forEach(n => {
+                const d = new Date(n.timestamp);
+                const fullTime = d.toLocaleTimeString('en-GB');
+                const newTs = new Date(targetDate + 'T' + fullTime).getTime();
+                const msOffset = n.timestamp % 1000;
+                n.timestamp = newTs + msOffset;
+            });
+
+            openFolders.add(targetDate);
+            openFolders.add(targetDate + '|' + sourceTime);
+
+            saveData();
+            rebuildIndexes();
+            renderSidebar();
+        }
+
+        function formatTime12h(date, includeSeconds) {
+            let hours = date.getHours();
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'pm' : 'am';
+            hours = hours % 12 || 12;
+            const h = String(hours).padStart(2, '0');
+            if (includeSeconds) return h + ':' + minutes + ':' + seconds + ampm;
+            return h + ':' + minutes + ampm;
+        }
+
+        function getNoteTitle(note) {
+            if (note.customTitle) return note.customTitle;
+            ensureContentLoaded(note);
+            if (!note.content.trim()) return formatTime12h(new Date(note.timestamp), true);
+            let title = note.content.replace(/\n/g, ' ').substring(0, 18);
+            if (note.content.length > 18) title += "...";
+            return title;
+        }
+
+        // --- Rendering ---
+        function renderSidebar() {
+            fileTree.innerHTML = '';
+
+            let displayNotes = notes;
+            if (filterBookmarked) displayNotes = displayNotes.filter(n => n.isBookmarked);
+
+            if (searchQuery) {
+                displayNotes = displayNotes.filter(n => {
+                    const title = getNoteTitle(n).toLowerCase();
+                    ensureContentLoaded(n);
+                    const content = n.content.toLowerCase();
+
+                    // Check temporal folder keys and aliases
+                    const d = new Date(n.timestamp);
+                    const dateKey = d.toLocaleDateString('en-CA');
+                    const timeKey = getMinuteKey(d);
+                    const dateAlias = (folderAliases[dateKey] || "").toLowerCase();
+                    const timeAlias = (folderAliases[timeKey] || "").toLowerCase();
+                    const timeName = formatTime12h(d, false).toLowerCase();
+
+                    // Check custom folder name
+                    let folderName = "";
+                    if (n.folderId) {
+                        const f = folderById.get(n.folderId);
+                        if (f) folderName = f.name.toLowerCase();
+                    }
+
+                    return title.includes(searchQuery) ||
+                        content.includes(searchQuery) ||
+                        dateKey.includes(searchQuery) ||
+                        timeKey.includes(searchQuery) ||
+                        dateAlias.includes(searchQuery) ||
+                        timeAlias.includes(searchQuery) ||
+                        timeName.includes(searchQuery) ||
+                        folderName.includes(searchQuery);
+                });
+            }
+
+            // Also check if folders themselves match search (to show empty matching folders)
+            const hasDisplayContent = displayNotes.length > 0 || folders.length > 0;
+
+            if (!hasDisplayContent) {
+                if (searchQuery || filterBookmarked) {
+                    fileTree.innerHTML = `<div style="padding:20px; color:#555; text-align:center; font-size:12px">No matches</div>`;
+                } else {
+                    fileTree.innerHTML = `<div class="empty-state"><div class="flag-art">  [ ]\n  [ ]\n  [ ]\n  [ ]\n  [ ]\n  [_]</div><div class="hint">type to begin...</div></div>`;
+                }
+                return;
+            }
+
+            const containsCurrent = (noteList) => {
+                return currentNoteId && noteList.some(n => n.id === currentNoteId);
+            };
+
+            const fragment = document.createDocumentFragment();
+            const displayNoteIds = new Set(displayNotes.map(n => n.id));
+
+            // --- 1. Render custom root-level folders ---
+            const rootFolders = (childFolders.get('__root__') || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+            rootFolders.forEach(folder => {
+                const folderEl = renderCustomFolder(folder, displayNoteIds, containsCurrent);
+                if (folderEl) fragment.appendChild(folderEl);
+            });
+
+            // --- 2. Render temporal + date-level notes ---
+            const temporalNotes = displayNotes.filter(n => !n.folderId);
+            const dateLevelNotes = displayNotes.filter(n => isDateLevelNote(n));
+
+            // Group temporal notes by date ->time
+            const grouped = {};
+            temporalNotes.forEach(note => {
+                const dateObj = new Date(note.timestamp);
+                const dateKey = dateObj.toLocaleDateString('en-CA');
+                const timeKey = getMinuteKey(dateObj);
+                if (!grouped[dateKey]) grouped[dateKey] = {};
+                if (!grouped[dateKey][timeKey]) grouped[dateKey][timeKey] = [];
+                grouped[dateKey][timeKey].push(note);
+            });
+
+            // Group date-level notes by date
+            const dateLevelByDate = {};
+            dateLevelNotes.forEach(note => {
+                const dateKey = note.folderId.substring(5);
+                if (!dateLevelByDate[dateKey]) dateLevelByDate[dateKey] = [];
+                dateLevelByDate[dateKey].push(note);
+            });
+
+            const todayKey = new Date().toLocaleDateString('en-CA');
+            const allDateKeys = new Set([...Object.keys(grouped), ...Object.keys(dateLevelByDate)]);
+            const dateKeys = [...allDateKeys].sort().reverse();
+
+            // Helper: render a date folder with direct notes + time subfolders
+            function renderDateFolder(dateKey) {
+                const dateName = folderAliases[dateKey] || dateKey;
+                const timeGroup = grouped[dateKey] || {};
+                const directNotes = dateLevelByDate[dateKey] || [];
+                const allDateNotes = [...Object.values(timeGroup).flat(), ...directNotes];
+
+                const isDateParentActive = containsCurrent(allDateNotes);
+                const isDateBookmarked = allDateNotes.length > 0 && allDateNotes.every(n => n.isBookmarked);
+                /*const isOpen = openFolders.has(dateKey) || searchQuery.length > 0 || filterBookmarked || isDateParentActive;*/
+                const isOpen = openFolders.has(dateKey) || searchQuery.length > 0 || filterBookmarked;
+                const dateFolder = createFolder(dateKey, dateName, 'date', isOpen, isDateBookmarked, isDateParentActive, allDateNotes.length);
+
+                // Skip rendering children if folder is closed (major perf win at scale)
+                if (!isOpen) return dateFolder;
+
+                const children = dateFolder.querySelector('.tree-children');
+
+                // 1. Direct date-level notes (above subfolders)
+                directNotes.sort((a, b) => b.timestamp - a.timestamp).forEach(note => {
+                    children.appendChild(createFileItem(note));
+                });
+
+                // 2. Time subfolders
+                Object.keys(timeGroup).sort().reverse().forEach(timeKey => {
+                    const timeNotes = timeGroup[timeKey];
+                    const timeName = folderAliases[timeKey] || formatTime12h(new Date(timeNotes[0].timestamp), false);
+                    const isTimeBookmarked = timeNotes.every(n => n.isBookmarked);
+                    const isTimeParentActive = containsCurrent(timeNotes);
+
+                    const compoundTimeId = `${dateKey}|${timeKey}`;
+                    const isTimeOpen = openFolders.has(compoundTimeId) || searchQuery.length > 0 || filterBookmarked /*|| isTimeParentActive*/;
+
+                    const timeFolder = createFolder(compoundTimeId, timeName, 'time', isTimeOpen, isTimeBookmarked, isTimeParentActive, timeNotes.length);
+
+                    // Skip rendering note items if time folder is closed
+                    if (isTimeOpen) {
+                        timeNotes.forEach(note => {
+                            timeFolder.querySelector('.tree-children').appendChild(createFileItem(note));
+                        });
+                    }
+
+                    timeFolder.classList.add('sub-folder');
+                    children.appendChild(timeFolder);
+                });
+
+                return dateFolder;
+            }
+
+            // Always render TODAY section as a drop zone
+            const separator = document.createElement('div');
+            separator.className = 'today-separator';
+            separator.innerText = "TODAY";
+            attachTodayDropHandlers(separator);
+            fragment.appendChild(separator);
+
+            // Render today's date folder if it has content
+            if (grouped[todayKey] || dateLevelByDate[todayKey]) {
+                fragment.appendChild(renderDateFolder(todayKey));
+            } else {
+                const emptyToday = document.createElement('div');
+                emptyToday.className = 'today-empty';
+                emptyToday.textContent = "No notes yet today.";
+                fragment.appendChild(emptyToday);
+            }
+
+            const footer = document.createElement('div');
+            footer.className = 'today-footer';
+            attachTodayDropHandlers(footer);
+            fragment.appendChild(footer);
+
+            // Render older date folders (skip today, already rendered)
+            dateKeys.forEach(dateKey => {
+                if (dateKey === todayKey) return;
+                fragment.appendChild(renderDateFolder(dateKey));
+            });
+
+            fileTree.appendChild(fragment);
+            focusedItemIndex = -1;
+            document.querySelectorAll('.focused').forEach(el => el.classList.remove('focused'));
+            updateBulkBar();
+
+            // Scroll to active note
+            requestAnimationFrame(() => {
+                const activeEl = fileTree.querySelector('.file-item.active');
+                if (activeEl) activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            });
+        }
+
+        function renderCustomFolder(folder, displayNoteIds, containsCurrent) {
+            const folderNotes = (notesByFolderId.get(folder.id) || []).filter(n => displayNoteIds.has(n.id));
+            const subFolders = (childFolders.get(folder.id) || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+
+            // Skip empty folders during search/filter (unless folder itself has content)
+            if ((searchQuery || filterBookmarked) && folderNotes.length === 0 && subFolders.length === 0) {
+                return null;
+            }
+
+            const allNotes = folderNotes;
+            const isParentActive = containsCurrent(allNotes);
+            const isBookmarked = folder.isBookmarked || false;
+            const isOpen = openFolders.has(folder.id) || searchQuery.length > 0 || filterBookmarked /*|| isParentActive*/;
+
+            const folderEl = createFolder(folder.id, folder.name, 'custom', isOpen, isBookmarked, isParentActive, folderNotes.length);
+
+            // Skip rendering children if folder is closed (major perf win at scale)
+            if (!isOpen) return folderEl;
+
+            const children = folderEl.querySelector('.tree-children');
+
+            // Render child notes
+            folderNotes.sort((a, b) => b.timestamp - a.timestamp).forEach(note => {
+                children.appendChild(createFileItem(note));
+            });
+
+            // Render nested subfolders
+            subFolders.forEach(sub => {
+                const subEl = renderCustomFolder(sub, displayNoteIds, containsCurrent);
+                if (subEl) {
+                    subEl.classList.add('sub-folder');
+                    children.appendChild(subEl);
+                }
+            });
+
+            return folderEl;
+        }
+
+        function createFolder(id, displayName, type, isOpen, isBookmarked, isActiveParent, noteCount) {
+            const container = document.createElement('div');
+            container.className = `tree-item ${isOpen ? 'open' : ''} ${isActiveParent ? 'active-parent' : ''}`;
+
+            const header = document.createElement('div');
+            header.className = 'tree-header';
+            // ID here can be simple (Date) or compound (Time)
+            header.setAttribute('data-folder-id', id);
+            header.setAttribute('data-drop-type', type);
+            header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+
+            const countBadge = noteCount > 0 ? `<span class="folder-count">${noteCount}</span>` : '';
+            header.innerHTML = `
+                <span class="arrow">&#9654;</span>
+                <span class="item-text">${escapeHTML(displayName)}</span>${countBadge}
+                <div class="item-controls">
+                    <span class="control-btn menu">&#8942;</span>
+                </div>
+                <span class="star-btn ${isBookmarked ? 'is-active' : ''}">&#9733;</span>
+            `;
+
+            header.onclick = (e) => {
+                if (!e.target.classList.contains('control-btn') && !e.target.classList.contains('star-btn')) {
+                    const isOpen = container.classList.contains('open');
+                    if (isOpen) { openFolders.delete(id); } else { openFolders.add(id); }
+                    // Re-render sidebar to populate/clear children (skip-closed optimization)
+                    renderSidebar();
+                }
+            };
+            header.querySelector('.star-btn').onclick = (e) => toggleBookmark(e, 'folder', id);
+            header.querySelector('.menu').onclick = (e) => showContextMenu(e, 'folder', id);
+            // Double-click to rename custom folders
+            if (type === 'custom') {
+                header.querySelector('.item-text').addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    startRename('folder', id);
+                });
+            }
+
+            // "+" button on ALL folder types
+            const controls = header.querySelector('.item-controls');
+            const addBtn = document.createElement('span');
+            addBtn.className = 'control-btn add-note';
+            addBtn.textContent = '+note';
+            addBtn.title = 'new note';
+            addBtn.onclick = (e) => {
+                e.stopPropagation();
+                addNoteToFolder(id, type);
+            };
+            controls.insertBefore(addBtn, controls.firstChild);
+
+            // Drag: time folders and custom folders are draggable
+            if (type === 'time' || type === 'custom') {
+                header.setAttribute('draggable', 'true');
+                header.addEventListener('dragstart', (e) => {
+                    e.stopPropagation();
+                    const dragType = type === 'time' ? 'timeFolder' : 'customFolder';
+                    e.dataTransfer.setData('text/plain', JSON.stringify({
+                        type: dragType,
+                        folderId: id
+                    }));
+                    e.dataTransfer.effectAllowed = 'move';
+                    container.style.opacity = '0.5';
+                    highlightDropTargets(dragType);
+                });
+                header.addEventListener('dragend', () => {
+                    container.style.opacity = '1';
+                    clearAllDragOver();
+                    clearDropTargets();
+                });
+            }
+
+            // Drop: all folders are drop targets
+            header.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                header.classList.add('drag-over');
+            });
+            header.addEventListener('dragleave', () => {
+                header.classList.remove('drag-over');
+            });
+            header.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                header.classList.remove('drag-over');
+                try {
+                    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                    handleDrop(data, id, type);
+                } catch (err) { }
+            });
+
+            const children = document.createElement('div');
+            children.className = 'tree-children';
+            container.appendChild(header);
+            container.appendChild(children);
+
+            // Fade-in animation for newly created folders
+            if (id === justCreatedFolderId) {
+                container.classList.add('sidebar-fade-in');
+                container.addEventListener('animationend', () => container.classList.remove('sidebar-fade-in'), { once: true });
+                justCreatedFolderId = null;
+            }
+
+            return container;
+        }
+
+        function createFileItem(note) {
+            const anchored = isAnchoredNote(note);
+            const el = document.createElement('div');
+            el.className = `file-item ${currentNoteId === note.id ? 'active' : ''} ${anchored ? 'anchored' : ''}`.trim();
+            el.id = `file-${note.id}`;
+
+            const leadingIcon = anchored
+                ? getAnchorIconMarkup()
+                : '<span class="note-icon">&mdash;</span>';
+
+            el.innerHTML = `
+                ${leadingIcon}
+                <span class="item-text">${escapeHTML(getNoteTitle(note))}</span>
+                <div class="item-controls">
+                    <span class="control-btn menu">&#8942;</span>
+                </div>
+                <span class="star-btn ${note.isBookmarked ? 'is-active' : ''}">&#9733;</span>
+            `;
+
+            let wasDragged = false;
+            if (!anchored) {
+                el.setAttribute('draggable', 'true');
+                el.addEventListener('dragstart', (e) => {
+                    wasDragged = true;
+                    const rawNoteIds = selectedNoteIds.has(note.id) && selectedNoteIds.size > 1
+                        ? [...selectedNoteIds] : [note.id];
+                    const noteIds = rawNoteIds.filter(id => {
+                        const selectedNote = noteById.get(id);
+                        return selectedNote && !isAnchoredNote(selectedNote);
+                    });
+                    if (noteIds.length === 0) {
+                        e.preventDefault();
+                        wasDragged = false;
+                        return;
+                    }
+                    e.dataTransfer.setData('text/plain', JSON.stringify({
+                        type: 'note',
+                        noteId: noteIds[0],
+                        noteIds: noteIds
+                    }));
+                    e.dataTransfer.effectAllowed = 'move';
+                    el.style.opacity = '0.5';
+                    highlightDropTargets('note');
+                });
+                el.addEventListener('dragend', () => {
+                    el.style.opacity = '1';
+                    clearAllDragOver();
+                    clearDropTargets();
+                    setTimeout(() => { wasDragged = false; }, 0);
+                });
+            } else {
+                el.setAttribute('draggable', 'false');
+            }
+
+            el.onclick = (e) => {
+                if (wasDragged) return;
+                if (e.ctrlKey || e.metaKey) {
+                    // Toggle selection
+                    if (selectedNoteIds.has(note.id)) {
+                        selectedNoteIds.delete(note.id);
+                    } else {
+                        selectedNoteIds.add(note.id);
+                    }
+                    lastClickedNoteId = note.id;
+                    updateBulkBar();
+                } else if (e.shiftKey && lastClickedNoteId) {
+                    // Range select
+                    selectRange(lastClickedNoteId, note.id);
+                    updateBulkBar();
+                } else {
+                    // Normal click ->clear selection + load note
+                    clearSelection();
+                    loadNote(note.id);
+                }
+            };
+            el.querySelector('.star-btn').onclick = (e) => toggleBookmark(e, 'file', note.id);
+            el.querySelector('.menu').onclick = (e) => showContextMenu(e, 'file', note.id);
+            // Double-click to rename
+            el.querySelector('.item-text').addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                startRename('file', note.id);
+            });
+
+            // Fade-in animation for newly created notes
+            if (note.id === justCreatedNoteId) {
+                el.classList.add('sidebar-fade-in');
+                el.addEventListener('animationend', () => el.classList.remove('sidebar-fade-in'), { once: true });
+                justCreatedNoteId = null;
+            }
+
+            return el;
+        }
+
+        // --- Recycle Bin Rendering ---
+        function renderTrash() {
+            const trashTree = document.getElementById('trashTree');
+            const emptyBtn = document.getElementById('trashEmptyBtn');
+            const toggleBtn = document.getElementById('trashToggle');
+            trashTree.innerHTML = '';
+
+            if (deletedNotes.length === 0) {
+                emptyBtn.classList.remove('show');
+                trashTree.classList.remove('show');
+                toggleBtn.classList.remove('active');
+                trashExpanded = false;
+                return;
+            }
+
+            toggleBtn.classList.toggle('active', trashExpanded);
+            trashTree.classList.toggle('show', trashExpanded);
+            emptyBtn.classList.toggle('show', trashExpanded);
+
+            if (!trashExpanded) return;
+
+            const fragment = document.createDocumentFragment();
+
+            // Build deleted folder lookup
+            const deletedFolderById = new Map();
+            deletedFolders.forEach(f => deletedFolderById.set(f.id, f));
+
+            // Group deleted notes by folderId
+            const notesByTrashFolder = new Map();
+            const orphanNotes = [];
+            deletedNotes.forEach(n => {
+                if (n.folderId && (deletedFolderById.has(n.folderId) || n.folderId.startsWith('date:'))) {
+                    if (!notesByTrashFolder.has(n.folderId)) notesByTrashFolder.set(n.folderId, []);
+                    notesByTrashFolder.get(n.folderId).push(n);
+                } else if (n.folderId && !n.folderId.startsWith('date:')) {
+                    // Custom folder note but folder not in deletedFolders — group by folderId anyway
+                    if (!notesByTrashFolder.has(n.folderId)) notesByTrashFolder.set(n.folderId, []);
+                    notesByTrashFolder.get(n.folderId).push(n);
+                } else {
+                    orphanNotes.push(n);
+                }
+            });
+
+            // Render custom deleted folders
+            const renderedFolderIds = new Set();
+            const renderTrashFolder = (folder) => {
+                if (renderedFolderIds.has(folder.id)) return null;
+                renderedFolderIds.add(folder.id);
+
+                const folderNotes = notesByTrashFolder.get(folder.id) || [];
+                const subFolders = deletedFolders.filter(f => f.parentId === folder.id);
+
+                if (folderNotes.length === 0 && subFolders.length === 0) return null;
+
+                const container = document.createElement('div');
+                container.className = 'tree-item open';
+                const header = document.createElement('div');
+                header.className = 'tree-header';
+                header.setAttribute('data-folder-id', folder.id);
+                header.innerHTML = `
+                    <span class="arrow">&#9654;</span>
+                    <span class="item-text">${escapeHTML(folder.name)}</span>
+                    <span class="folder-count">${folderNotes.length}</span>
+                    <div class="item-controls">
+                        <span class="control-btn menu">&#8942;</span>
+                    </div>
+                `;
+                header.querySelector('.menu').onclick = (e) => showContextMenu(e, 'folder', folder.id, true);
+                header.onclick = (e) => {
+                    if (!e.target.classList.contains('control-btn')) {
+                        container.classList.toggle('open');
+                    }
+                };
+
+                const children = document.createElement('div');
+                children.className = 'tree-children';
+
+                folderNotes.sort((a, b) => b.timestamp - a.timestamp).forEach(n => {
+                    children.appendChild(createTrashFileItem(n));
+                });
+                subFolders.forEach(sf => {
+                    const sfEl = renderTrashFolder(sf);
+                    if (sfEl) children.appendChild(sfEl);
+                });
+
+                container.appendChild(header);
+                container.appendChild(children);
+                return container;
+            };
+
+            // Render root-level deleted folders
+            deletedFolders.filter(f => !f.parentId || !deletedFolderById.has(f.parentId)).forEach(folder => {
+                const el = renderTrashFolder(folder);
+                if (el) fragment.appendChild(el);
+            });
+
+            // Render date-grouped notes
+            const dateGroups = new Map();
+            notesByTrashFolder.forEach((notesArr, fId) => {
+                if (fId.startsWith('date:')) {
+                    const dateKey = fId.substring(5);
+                    if (!dateGroups.has(dateKey)) dateGroups.set(dateKey, []);
+                    dateGroups.get(dateKey).push(...notesArr);
+                }
+            });
+
+            [...dateGroups.entries()].sort((a, b) => b[0].localeCompare(a[0])).forEach(([dateKey, dnotes]) => {
+                const container = document.createElement('div');
+                container.className = 'tree-item open';
+                const header = document.createElement('div');
+                header.className = 'tree-header';
+                header.innerHTML = `
+                    <span class="arrow">&#9654;</span>
+                    <span class="item-text">${escapeHTML(dateKey)}</span>
+                    <span class="folder-count">${dnotes.length}</span>
+                `;
+                header.onclick = () => container.classList.toggle('open');
+                const children = document.createElement('div');
+                children.className = 'tree-children';
+                dnotes.sort((a, b) => b.timestamp - a.timestamp).forEach(n => {
+                    children.appendChild(createTrashFileItem(n));
+                });
+                container.appendChild(header);
+                container.appendChild(children);
+                fragment.appendChild(container);
+            });
+
+            // Render orphan notes (temporal, no folder)
+            orphanNotes.sort((a, b) => b.timestamp - a.timestamp).forEach(n => {
+                fragment.appendChild(createTrashFileItem(n));
+            });
+
+            trashTree.appendChild(fragment);
+        }
+
+        function createTrashFileItem(note) {
+            const el = document.createElement('div');
+            el.className = 'file-item';
+            el.id = `trash-${note.id}`;
+            el.innerHTML = `
+                <span class="note-icon">&mdash;</span>
+                <span class="item-text">${escapeHTML(getNoteTitle(note))}</span>
+                <div class="item-controls">
+                    <span class="control-btn menu">&#8942;</span>
+                </div>
+            `;
+            el.querySelector('.menu').onclick = (e) => showContextMenu(e, 'file', note.id, true);
+            el.onclick = (e) => {
+                if (!e.target.classList.contains('control-btn')) {
+                    // Load note content in read-only view
+                    ensureContentLoaded(note);
+                    editor.value = note.content;
+                    currentNoteId = null;
+                    editor.readOnly = true;
+                    document.getElementById('toolbarTrash').classList.remove('show');
+                }
+            };
+            return el;
+        }
+
+        // --- Undo Delete ---
+        function performDelete(type, id) {
+            // Find element to animate before deletion
+            let el = null;
+            if (type === 'file') {
+                el = document.getElementById('file-' + id);
+            } else {
+                const header = document.querySelector(`[data-folder-id="${id}"]`);
+                el = header ? header.closest('.tree-item, .sub-folder') : null;
+            }
+
+            if (el && !el.dataset.fading) {
+                el.dataset.fading = '1';
+                el.classList.add('sidebar-fade-out');
+                const done = () => {
+                    if (!el.dataset.fading) return;
+                    delete el.dataset.fading;
+                    executeDelete(type, id);
+                };
+                el.addEventListener('animationend', done, { once: true });
+                setTimeout(() => { if (el.dataset.fading) done(); }, 250);
+            } else {
+                executeDelete(type, id);
+            }
+        }
+
+        function executeDelete(type, id) {
+            commitPendingDelete(); // commit any previous pending delete
+
+            const snapshot = { notes: [], folders: [], aliases: {}, wasCurrentId: currentNoteId };
+            const trashedNotes = [];
+            const trashedFolders = [];
+
+            let needsFullRebuild = false;
+
+            if (type === 'file') {
+                const note = noteById.get(id);
+                if (note) {
+                    ensureContentLoaded(note);
+                    snapshot.notes.push({ ...note });
+                    trashedNotes.push(note);
+                    indexRemove(note);
+                }
+                notes = notes.filter(n => n.id !== id);
+                if (currentNoteId === id) prepareGhostNote();
+            } else if (type === 'folder') {
+                needsFullRebuild = true;
+                if (folderById.has(id)) {
+                    // Custom folder cascade
+                    const foldersToDelete = new Set();
+                    const collectFolders = (fid) => {
+                        foldersToDelete.add(fid);
+                        (childFolders.get(fid) || []).forEach(sub => collectFolders(sub.id));
+                    };
+                    collectFolders(id);
+                    // Snapshot folders
+                    const affectedFolders = folders.filter(f => foldersToDelete.has(f.id));
+                    affectedFolders.forEach(f => {
+                        snapshot.folders.push({ ...f });
+                        trashedFolders.push({ ...f });
+                    });
+                    // Snapshot notes (no removeNoteStorage — content stays for trash)
+                    notes.filter(n => n.folderId && foldersToDelete.has(n.folderId)).forEach(n => {
+                        ensureContentLoaded(n);
+                        snapshot.notes.push({ ...n });
+                        trashedNotes.push(n);
+                    });
+                    notes = notes.filter(n => !n.folderId || !foldersToDelete.has(n.folderId));
+                    folders = folders.filter(f => !foldersToDelete.has(f.id));
+                } else {
+                    // Temporal folder
+                    const notesToDelete = getNotesInFolder(id);
+                    notesToDelete.forEach(n => {
+                        ensureContentLoaded(n);
+                        snapshot.notes.push({ ...n });
+                        trashedNotes.push(n);
+                    });
+                    notes = notes.filter(n => !notesToDelete.includes(n));
+                    const rawId = id.includes('|') ? id.split('|')[1] : id;
+                    if (folderAliases[rawId]) {
+                        snapshot.aliases[rawId] = folderAliases[rawId];
+                        delete folderAliases[rawId];
+                    }
+                }
+                if (currentNoteId && !notes.some(n => n.id === currentNoteId)) prepareGhostNote();
+            }
+
+            // Move to trash instead of permanent delete
+            moveToTrash(trashedNotes, trashedFolders);
+
+            saveData();
+            if (needsFullRebuild) rebuildIndexes();
+            renderSidebar();
+            renderTrash();
+
+            pendingDelete = snapshot;
+            showUndoToast(type === 'file' ? 'note deleted' : 'folder deleted');
+        }
+
+        function commitPendingDelete() {
+            if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
+            pendingDelete = null;
+            document.getElementById('undoToast').classList.remove('show');
+        }
+
+        function undoDelete() {
+            if (!pendingDelete) return;
+            const snap = pendingDelete;
+
+            // Remove from trash and restore to notes
+            snap.notes.forEach(n => {
+                // Pull from deletedNotes
+                deletedNotes = deletedNotes.filter(dn => dn.id !== n.id);
+                n._contentLoaded = true;
+                notes.push(n);
+                saveNoteContent(n);
+            });
+            notes.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Restore folders
+            snap.folders.forEach(f => {
+                deletedFolders = deletedFolders.filter(df => df.id !== f.id);
+                folders.push(f);
+            });
+
+            // Restore aliases
+            Object.assign(folderAliases, snap.aliases);
+
+            saveData();
+            saveDeletedData();
+            rebuildIndexes();
+            renderSidebar();
+            renderTrash();
+
+            // Reload the note that was active before delete
+            if (snap.wasCurrentId && noteById.get(snap.wasCurrentId)) {
+                loadNote(snap.wasCurrentId);
+            }
+
+            commitPendingDelete();
+        }
+
+        function showUndoToast(message) {
+            const toast = document.getElementById('undoToast');
+            document.getElementById('undoMessage').textContent = message;
+            toast.classList.add('show');
+            if (undoTimer) clearTimeout(undoTimer);
+            undoTimer = setTimeout(() => commitPendingDelete(), 7500);
+        }
+
+        // --- Multi-Select ---
+        function updateBulkBar() {
+            const bar = document.getElementById('bulkBar');
+            const count = document.getElementById('bulkCount');
+            if (selectedNoteIds.size > 0) {
+                bar.classList.add('show');
+                count.textContent = selectedNoteIds.size + ' selected';
+            } else {
+                bar.classList.remove('show');
+            }
+            // Apply .selected class to DOM
+            document.querySelectorAll('.file-item').forEach(el => {
+                const noteId = parseInt(el.id.replace('file-', ''));
+                el.classList.toggle('selected', selectedNoteIds.has(noteId));
+            });
+        }
+
+        function clearSelection() {
+            selectedNoteIds.clear();
+            lastClickedNoteId = null;
+            updateBulkBar();
+        }
+
+        function selectRange(fromId, toId) {
+            const items = getVisibleItems();
+            const noteItems = items.filter(el => el.classList.contains('file-item'));
+            let fromIdx = -1, toIdx = -1;
+            noteItems.forEach((el, i) => {
+                const nId = parseInt(el.id.replace('file-', ''));
+                if (nId === fromId) fromIdx = i;
+                if (nId === toId) toIdx = i;
+            });
+            if (fromIdx === -1 || toIdx === -1) return;
+            const start = Math.min(fromIdx, toIdx);
+            const end = Math.max(fromIdx, toIdx);
+            for (let i = start; i <= end; i++) {
+                const nId = parseInt(noteItems[i].id.replace('file-', ''));
+                selectedNoteIds.add(nId);
+            }
+        }
+
+        function performBulkDelete(noteIds) {
+            const elements = noteIds.map(nId => document.getElementById('file-' + nId)).filter(Boolean);
+
+            const doDelete = () => {
+                commitPendingDelete();
+                const snapshot = { notes: [], folders: [], aliases: {}, wasCurrentId: currentNoteId };
+                const trashedNotes = [];
+                noteIds.forEach(nId => {
+                    const note = noteById.get(nId);
+                    if (note) {
+                        ensureContentLoaded(note);
+                        snapshot.notes.push({ ...note });
+                        trashedNotes.push(note);
+                    }
+                });
+                notes = notes.filter(n => !noteIds.includes(n.id));
+                moveToTrash(trashedNotes, []);
+                if (currentNoteId && noteIds.includes(currentNoteId)) prepareGhostNote();
+                clearSelection();
+                saveData();
+                rebuildIndexes();
+                renderSidebar();
+                renderTrash();
+                pendingDelete = snapshot;
+                const count = snapshot.notes.length;
+                showUndoToast(count + (count === 1 ? ' note' : ' notes') + ' deleted.');
+            };
+
+            if (elements.length > 0) {
+                let remaining = elements.length;
+                const onDone = () => {
+                    remaining--;
+                    if (remaining <= 0) doDelete();
+                };
+                elements.forEach(el => {
+                    el.classList.add('sidebar-fade-out');
+                    el.addEventListener('animationend', onDone, { once: true });
+                });
+                setTimeout(() => { if (remaining > 0) { remaining = 0; doDelete(); } }, 250);
+            } else {
+                doDelete();
+            }
+        }
+
+        // --- Keyboard Navigation ---
+        function getVisibleItems() {
+            const items = [];
+            fileTree.querySelectorAll('.tree-header, .file-item').forEach(el => {
+                // Skip items inside collapsed .tree-children
+                const parent = el.closest('.tree-children');
+                if (parent && !parent.parentElement.classList.contains('open')) return;
+                items.push(el);
+            });
+            return items;
+        }
+
+        function setFocusedItem(index) {
+            const items = getVisibleItems();
+            // Clear old focus
+            document.querySelectorAll('.focused').forEach(el => el.classList.remove('focused'));
+            if (index < 0 || index >= items.length) {
+                focusedItemIndex = -1;
+                return;
+            }
+            focusedItemIndex = index;
+            items[index].classList.add('focused');
+            items[index].scrollIntoView({ block: 'nearest' });
+        }
+
+        function activateFocusedItem() {
+            const items = getVisibleItems();
+            if (focusedItemIndex < 0 || focusedItemIndex >= items.length) return;
+            items[focusedItemIndex].click();
+        }
+
+        // --- Markdown Formatting ---
+        function wrapSelection(before, after) {
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const selected = editor.value.substring(start, end);
+            const val = editor.value;
+
+            // If already wrapped, unwrap
+            const preBefore = val.substring(Math.max(0, start - before.length), start);
+            const postAfter = val.substring(end, end + after.length);
+            if (preBefore === before && postAfter === after) {
+                editor.value = val.substring(0, start - before.length) + selected + val.substring(end + after.length);
+                editor.selectionStart = start - before.length;
+                editor.selectionEnd = end - before.length;
+            } else {
+                editor.value = val.substring(0, start) + before + selected + after + val.substring(end);
+                editor.selectionStart = start + before.length;
+                editor.selectionEnd = end + before.length;
+            }
+            editor.focus();
+            editor.dispatchEvent(new Event('input'));
+        }
+
+        function insertAtLineStart(prefix) {
+            const start = editor.selectionStart;
+            const val = editor.value;
+            // Find line start
+            const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+            const lineContent = val.substring(lineStart, start);
+
+            if (lineContent.startsWith(prefix)) {
+                // Remove prefix
+                editor.value = val.substring(0, lineStart) + val.substring(lineStart + prefix.length);
+                editor.selectionStart = editor.selectionEnd = start - prefix.length;
+            } else {
+                editor.value = val.substring(0, lineStart) + prefix + val.substring(lineStart);
+                editor.selectionStart = editor.selectionEnd = start + prefix.length;
+            }
+            editor.focus();
+            editor.dispatchEvent(new Event('input'));
+        }
+
+        function applyFormat(format) {
+            if (!currentNoteId && !editor.value.trim()) return;
+            switch (format) {
+                case 'bold': wrapSelection('**', '**'); break;
+                case 'italic': wrapSelection('*', '*'); break;
+                case 'code': wrapSelection('`', '`'); break;
+                case 'heading': insertAtLineStart('# '); break;
+                case 'link':
+                    const start = editor.selectionStart;
+                    const end = editor.selectionEnd;
+                    const selected = editor.value.substring(start, end);
+                    if (selected) {
+                        wrapSelection('[', '](url)');
+                    } else {
+                        wrapSelection('[', 'link](url)');
+                    }
+                    break;
+                case 'list': insertAtLineStart('- '); break;
+            }
+        }
+
+        // --- Markdown Preview ---
+        function parseMarkdown(text) {
+            // Escape HTML first (XSS-safe)
+            let html = escapeHTML(text);
+
+            // Code blocks (``` ... ```)
+            html = html.replace(/```([\s\S]*?)```/g, (m, code) => `<pre><code>${code.trim()}</code></pre>`);
+
+            // Inline code
+            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+            // Headers (must be at line start)
+            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+            // Horizontal rules
+            html = html.replace(/^---$/gm, '<hr>');
+
+            // Blockquotes
+            html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+            // Bold and italic
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+            // Links [text](url)
+            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, rawHref) => {
+                const safeHref = sanitizePreviewHref(rawHref);
+                if (!safeHref) return label;
+                return `<a href="${escapeHTML(safeHref)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+            });
+
+            // Auto-link plain URLs in preview output.
+            html = linkifyPlainUrls(html);
+
+            // Unordered lists
+            html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+            html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+            // Paragraphs: wrap remaining lines
+            html = html.split('\n').map(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return '';
+                if (/^<(h[1-3]|hr|pre|ul|ol|li|blockquote)/.test(trimmed)) return trimmed;
+                return `<p>${trimmed}</p>`;
+            }).join('\n');
+
+            return html;
+        }
+
+        function togglePreview() {
+            const preview = document.getElementById('preview');
+            const toggleBtn = document.getElementById('previewToggle');
+            previewMode = !previewMode;
+
+            if (previewMode) {
+                preview.innerHTML = parseMarkdown(editor.value);
+                editor.style.display = 'none';
+                preview.style.display = 'block';
+                toggleBtn.textContent = 'edit';
+                toggleBtn.classList.add('active');
+
+                // Intercept link clicks with warning
+                preview.onclick = (e) => {
+                    const link = e.target.closest('a');
+                    if (link) {
+                        e.preventDefault();
+                        const safeHref = sanitizePreviewHref(link.getAttribute('href'));
+                        if (!safeHref) {
+                            alert('Blocked unsafe or unsupported link.');
+                            return;
+                        }
+                        if (confirm('This link goes to an external site not associated with Imminote. Continue?')) {
+                            window.open(safeHref, '_blank', 'noopener,noreferrer');
+                        }
+                    }
+                };
+            } else {
+                editor.style.display = '';
+                preview.style.display = 'none';
+                toggleBtn.innerHTML = '<span class="tool-label-long">markdown preview</span><span class="tool-label-short">preview</span>';
+                toggleBtn.classList.remove('active');
+                editor.focus();
+            }
+        }
+
+        function deleteCurrentNote() {
+            if (currentNoteId) performDelete('file', currentNoteId);
+        }
+
+        function toggleSidebar() {
+            sidebarCollapsed = !sidebarCollapsed;
+            document.getElementById('sidebar').classList.toggle('sidebar-collapsed', sidebarCollapsed);
+            updateBackdrop();
+            localStorage.setItem('imminote_sidebar_collapsed', sidebarCollapsed ? '1' : '0');
+        }
+
+        function updateBackdrop() {
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (!backdrop) return;
+            const isSmall = window.matchMedia('(max-width: 1000px)').matches;
+            backdrop.classList.toggle('show', isSmall && !sidebarCollapsed);
+        }
+
+        /*on : off*/
+        function updateWritingBoundariesMenu() {
+            if (ioBoundaryLabel) {
+                ioBoundaryLabel.textContent = writingBoundariesEnabled ? 'writing boundaries' : 'writing boundaries';
+            }
+            if (ioBoundaryIcon) {
+                ioBoundaryIcon.innerHTML = writingBoundariesEnabled ? '&#9635;' : '&#9723;';
+            }
+        }
+
+        function applyWritingBoundaries(enabled, persist = true) {
+            writingBoundariesEnabled = !!enabled;
+            if (writingBoundariesEnabled) {
+                document.documentElement.removeAttribute('data-writing-boundaries');
+            } else {
+                document.documentElement.setAttribute('data-writing-boundaries', 'off');
+            }
+            if (persist) {
+                localStorage.setItem('imminote_writing_boundaries', writingBoundariesEnabled ? '1' : '0');
+            }
+            updateWritingBoundariesMenu();
+        }
+
+        function toggleWritingBoundaries() {
+            applyWritingBoundaries(!writingBoundariesEnabled);
+        }
+
+        function toggleTheme() {
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            const newTheme = isLight ? 'dark' : 'light';
+            if (newTheme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+            localStorage.setItem('imminote_theme', newTheme);
+            updateThemeButton(newTheme);
+        }
+
+        function updateThemeButton(theme) {
+            if (ioThemeIcon) ioThemeIcon.innerHTML = theme === 'light' ? '&#9728;' : '&#9790;';
+            if (ioThemeLabel) ioThemeLabel.textContent = `theme: ${theme === 'light' ? 'light' : 'dark'}`;
+            // Update meta theme-color
+            const metaTheme = document.querySelector('meta[name="theme-color"]');
+            if (metaTheme) metaTheme.content = theme === 'light' ? '#f5f0e8' : '#1e1e1e';
+        }
+
+        // --- MERGED EDITOR LOGIC ---
+        const debouncedSaveIndicator = debounce(() => {
+            indicator.classList.add('show');
+            if (saveIndicatorTimer) clearTimeout(saveIndicatorTimer);
+            saveIndicatorTimer = setTimeout(() => indicator.classList.remove('show'), 1500);
+        }, 300);
+
+        // Debounced localStorage write - only saves the current note's content (fast)
+        const debouncedSaveContent = debounce(() => {
+            if (currentNoteId) {
+                const note = noteById.get(currentNoteId);
+                if (note) saveNoteContent(note);
+            }
+        }, 300);
+
+        editor.addEventListener('input', function () {
+            const content = editor.value.trim();
+
+            if (currentNoteId === null) {
+                // Ghost Mode -> Create Real Note
+                if (content.length > 0) {
+                    createRealNoteFromGhost();
+                }
+            } else {
+                // Real Mode -> Handle Updates
+                if (content.length === 0) {
+                    // User cleared note -> soft delete with undo
+                    performDelete('file', currentNoteId);
+                } else {
+                    // Update Note
+                    const note = noteById.get(currentNoteId);
+                    if (note) {
+                        note.content = editor.value;
+                        debouncedSaveContent();
+
+                        if (!note.customTitle) {
+                            const label = document.querySelector(`#file-${currentNoteId} .item-text`);
+                            if (label) label.innerText = getNoteTitle(note);
+                        }
+
+                        debouncedSaveIndicator();
+                    }
+                }
+            }
+            updateWordCount();
+        });
+
+        // --- Tap editor to close sidebar on small screens ---
+        editor.addEventListener('click', function () {
+            const isSmall = window.matchMedia('(max-width: 1000px)').matches;
+            if (isSmall && !sidebarCollapsed) {
+                toggleSidebar();
+            }
+        });
+
+        // --- Templates ---
+        const DEFAULT_TEMPLATES = [
+            { id: 'default-todo', name: 'To Do', content: 'To do:\n---------------------------------------------------\n- \n- \n- \n- \n- \n- \n- \n- \n- \n' }
+        ];
+
+        function loadTemplates() {
+            const parsed = parseStoredJSON('imminote_templates', null, Array.isArray);
+            if (parsed) {
+                templates = parsed;
+            } else {
+                templates = DEFAULT_TEMPLATES.map(t => ({ ...t }));
+                saveTemplates();
+            }
+        }
+
+        function saveTemplates() {
+            localStorage.setItem('imminote_templates', JSON.stringify(templates));
+        }
+
+        function toggleTemplateMenu() {
+            if (templateMenu.classList.contains('show')) {
+                templateMenu.classList.remove('show');
+                templateSaveMode = false;
+                return;
+            }
+            templateSaveMode = false;
+            renderTemplateMenu();
+            // Position above the Templates button
+            const btn = document.getElementById('templateBtn');
+            const rect = btn.getBoundingClientRect();
+            const mainRect = document.getElementById('main').getBoundingClientRect();
+            templateMenu.style.left = (rect.left - mainRect.left) + 'px';
+            templateMenu.style.bottom = (mainRect.bottom - rect.top + 4) + 'px';
+            templateMenu.classList.add('show');
+        }
+
+        function renderTemplateMenu() {
+            let html = '';
+            if (templateSaveMode) {
+                html += '<div class="template-save-row" onclick="event.stopPropagation()"><input class="template-name-input" placeholder="Template name..." maxlength="40"><span class="template-save-confirm" onclick="confirmSaveTemplate()">Save</span></div>';
+            } else {
+                html += '<div class="context-item" onclick="event.stopPropagation(); saveAsTemplate()"><span>+</span> Save as Template</div>';
+            }
+            if (templates.length > 0) {
+                html += '<div class="context-divider"></div>';
+                templates.forEach((t, i) => {
+                    html += `<div class="context-item" onclick="loadTemplate(${i})"><span class="template-name">${escapeHTML(t.name)}</span><span class="template-delete" onclick="event.stopPropagation(); deleteTemplate(${i})" title="Delete template">&#10005;</span></div>`;
+                });
+            } else if (!templateSaveMode) {
+                html += '<div class="template-empty-hint">No templates yet</div>';
+            }
+            templateMenu.innerHTML = html;
+            if (templateSaveMode) {
+                const input = templateMenu.querySelector('.template-name-input');
+                if (input) {
+                    input.focus();
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); confirmSaveTemplate(); }
+                        if (e.key === 'Escape') { templateSaveMode = false; renderTemplateMenu(); }
+                    });
+                }
+            }
+        }
+
+        function saveAsTemplate() {
+            if (!editor.value.trim()) return;
+            templateSaveMode = true;
+            renderTemplateMenu();
+        }
+
+        function confirmSaveTemplate() {
+            const input = templateMenu.querySelector('.template-name-input');
+            const name = input ? input.value.trim() : '';
+            if (!name) return;
+            templates.push({ id: generateId(), name: name, content: editor.value });
+            saveTemplates();
+            templateSaveMode = false;
+            renderTemplateMenu();
+        }
+
+        function loadTemplate(index) {
+            templateMenu.classList.remove('show');
+            const t = templates[index];
+            if (!t) return;
+            editor.value = t.content;
+            editor.focus();
+            editor.dispatchEvent(new Event('input'));
+        }
+
+        function deleteTemplate(index) {
+            templates.splice(index, 1);
+            saveTemplates();
+            renderTemplateMenu();
+        }
+
+        function flashIndicator(msg) {
+            indicator.textContent = msg;
+            indicator.classList.add('show');
+            if (saveIndicatorTimer) clearTimeout(saveIndicatorTimer);
+            saveIndicatorTimer = setTimeout(() => {
+                indicator.classList.remove('show');
+                indicator.textContent = 'Saved';
+            }, 1500);
+        }
+
+        window.addEventListener('load', init);
+        window.addEventListener('beforeunload', () => {
+            // Flush any pending content save for current note
+            if (currentNoteId) {
+                const note = noteById.get(currentNoteId);
+                if (note && note._contentLoaded) saveNoteContent(note);
+            }
+            saveData();
+        });
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+    </script>
+</body>
+</html>
+
+
+
