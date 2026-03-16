@@ -779,6 +779,7 @@
             scrollbar-width: none;
             align-items: center;
             box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+            transition: bottom 0.2s ease;
         }
 
         .editor-toolbar::-webkit-scrollbar {
@@ -984,6 +985,7 @@
             pointer-events: none;
             user-select: none;
             white-space: nowrap;
+            transition: bottom 0.2s ease;
         }
 
         .word-count.show {
@@ -1636,7 +1638,7 @@
                 /* Ensure toolbar sits above iOS home indicator */
                 bottom: calc(12px + env(safe-area-inset-bottom, 0px));
                 transform: none;
-                padding: 4px;
+                padding: 7px 4px;
                 gap: 4px;
             }
 
