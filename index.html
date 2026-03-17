@@ -297,6 +297,7 @@
             scroll-behavior: smooth;
             scrollbar-width: thin;
             scrollbar-color: var(--border-strong) var(--sidebar-bg);
+            height: 30px;
         }
 
         /* --- Tree Items --- */
@@ -313,7 +314,8 @@
             cursor: pointer;
             border-left: 2px solid transparent;
             position: relative;
-            height: 30px;
+            min-height: 30px;
+            max-height: 30px;
             transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
         }
 
@@ -342,42 +344,10 @@
             background: var(--earth-dim);
         }
 
-        /* --- Today Bracketing --- */
-
-        .today-separator {
-            padding: 24px 8px 4px 8px;
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
+        /* --- Today label on day folder --- */
+        .today-label {
             color: var(--earth-primary);
-            text-transform: uppercase;
-            display: flex;
-            align-items: center;
-            opacity: 0.8;
-        }
-
-        .today-separator::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--earth-primary);
-            margin-left: 8px;
-            opacity: 0.26;
-        }
-
-        .today-empty {
-            padding: 12px 16px;
-            font-size: 12px;
-            color: var(--text-dim);
-            font-style: italic;
-        }
-
-        /* Footer Line */
-        .today-footer {
-            margin: 12px 8px;
-            height: 1px;
-            background: var(--earth-primary);
-            opacity: 0.26;
+            font-weight: 500;
         }
 
         .arrow {
@@ -529,40 +499,85 @@
 
         /* --- Folder type hierarchy --- */
         .tree-header[data-drop-type="date"] {
+            padding-top: 4px;
+            padding-bottom: 4px;
+            margin-top: 0;
+            height: auto;
+            min-height: 28px;
+        }
+
+        .tree-header[data-drop-type="date"] .item-text {
+            font-size: 13px;
+            letter-spacing: 0.2px;
+        }
+
+        .tree-header[data-drop-type="date"] .arrow {
+            opacity: 0.5;
+            font-size: 9px;
+        }
+
+        /* --- Month folder (top-level temporal container) --- */
+        .tree-header[data-drop-type="month"] {
             padding-top: 8px;
             padding-bottom: 8px;
-            margin-top: 2px;
+            margin-top: 6px;
             height: auto;
             min-height: 30px;
         }
 
-        .tree-header[data-drop-type="date"] .item-text {
-            letter-spacing: 0.3px;
+        .tree-header[data-drop-type="month"] .item-text {
+            flex: 0 0 auto;
+            letter-spacing: 0.4px;
+            text-transform: lowercase;
+            color: var(--text-color);
+            font-weight: 500;
+            overflow: visible;
         }
 
-        .tree-header[data-drop-type="date"] .arrow {
-            opacity: 0.7;
+        .tree-header[data-drop-type="month"] .arrow {
+            opacity: 0.5;
         }
 
-        .tree-header[data-drop-type="time"] .item-text {
+        .tree-header[data-drop-type="month"]::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--text-color);
+            margin-left: 8px;
+            opacity: 0.13;
+        }
+
+        .tree-header[data-drop-type="month"] .folder-count {
+            opacity: 0.4;
+            font-size: 10px;
+        }
+
+        /* Hide controls on month headers to give more space */
+        .tree-header[data-drop-type="month"] .item-controls {
+            display: none;
+        }
+
+        .tree-header[data-drop-type="month"]:hover .item-controls {
+            display: flex;
+        }
+
+        .tree-header[data-drop-type="month"] .star-btn {
+            display: none;
+        }
+
+        /* --- Note time prefix --- */
+        .note-time-prefix {
             font-size: 13px;
             color: var(--text-dim);
-            font-weight: 400;
-        }
-
-        .tree-item.active-parent > .tree-header[data-drop-type="time"] .item-text,
-        .tree-header[data-drop-type="time"]:hover .item-text,
-        .tree-header.focused[data-drop-type="time"] .item-text {
-            color: var(--text-active);
-        }
-
-        .tree-header[data-drop-type="time"] .arrow {
-            opacity: 0.35;
-            font-size: 9px;
-        }
-
-        .tree-header[data-drop-type="time"] .folder-count {
             opacity: 0.5;
+            margin-right: 6px;
+            flex-shrink: 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .file-item.active .note-time-prefix,
+        .file-item:hover .note-time-prefix {
+            opacity: 0.8;
         }
 
         .tree-header[data-drop-type="custom"] .arrow {
@@ -1633,8 +1648,8 @@
                 bottom: 2px;
             }
 
-            /* Increase height in mobile */
-            .file-item, .tree-header {
+            /* Increase height for folders in mobile */
+            .file-item, .tree-header, .trash-tree {
                 height: 44px!important;
             }
         }
@@ -1740,7 +1755,7 @@
                 </div>
             </div>
             <div class="search-container">
-                <input type="text" id="searchInput" class="search-input" placeholder="Search..."
+                <input type="text" id="searchInput" class="search-input" placeholder="search..."
                     aria-label="Search notes">
                 <button class="search-clear" id="searchClear" aria-label="Clear search">&#10005;</button>
             </div>
@@ -1840,7 +1855,7 @@
         let filterBookmarked = false;
         let noteById = new Map();
         let notesByDate = new Map();
-        let notesByFolder = new Map();
+        let notesByMonth = new Map(); // "YYYY-MM" -> Set of dateKeys
         let notesByFolderId = new Map();
         let folderById = new Map();
         let childFolders = new Map();
@@ -1955,9 +1970,8 @@
             return new Date(timestamp).toLocaleDateString('en-CA');
         }
 
-        function getTimeFolderIdFromTimestamp(timestamp) {
-            const date = new Date(timestamp);
-            return `${getDateKeyFromTimestamp(timestamp)}|${getMinuteKey(date)}`;
+        function getMonthKey(dateKey) {
+            return dateKey.substring(0, 7); // "YYYY-MM-DD" -> "YYYY-MM"
         }
 
         function isCustomFolderNote(note) {
@@ -2093,13 +2107,15 @@
             note.anchorOriginFolderId = null;
 
             if (note.folderId && note.folderId.startsWith('date:')) {
-                openFolders.add(note.folderId.substring(5));
+                const dk = note.folderId.substring(5);
+                openFolders.add(getMonthKey(dk));
+                openFolders.add(dk);
             } else if (note.folderId) {
                 openFolderChain(note.folderId);
             } else {
                 const dateKey = getDateKeyFromTimestamp(note.timestamp);
+                openFolders.add(getMonthKey(dateKey));
                 openFolders.add(dateKey);
-                openFolders.add(getTimeFolderIdFromTimestamp(note.timestamp));
             }
 
             indexUpdate(note, oldFolderId, oldTimestamp);
@@ -2827,12 +2843,11 @@
             }
 
             const dateKey = now.toLocaleDateString('en-CA');
-            const timeKey = getMinuteKey(now);
+            openFolders.add(getMonthKey(dateKey));
             openFolders.add(dateKey);
-            openFolders.add(`${dateKey}|${timeKey}`);
 
             justCreatedNoteId = newNote.id;
-            justCreatedFolderId = `${dateKey}|${timeKey}`;
+            justCreatedFolderId = dateKey;
             renderSidebar();
             loadNote(newNote.id);
         }
@@ -2854,8 +2869,9 @@
                 }
 
                 if (isDateLevelNote(note)) {
-                    // Date-level direct note ->just open the date folder
-                    openFolders.add(note.folderId.substring(5));
+                    const dateKey = note.folderId.substring(5);
+                    openFolders.add(getMonthKey(dateKey));
+                    openFolders.add(dateKey);
                 } else if (note.folderId) {
                     // Custom folder ->open the folder chain up to root
                     let fid = note.folderId;
@@ -2865,12 +2881,11 @@
                         fid = f ? f.parentId : null;
                     }
                 } else {
-                    // Temporal note ->open date + time folders
+                    // Temporal note -> open month + date folders
                     const d = new Date(note.timestamp);
                     const dateKey = d.toLocaleDateString('en-CA');
-                    const timeKey = getMinuteKey(d);
+                    openFolders.add(getMonthKey(dateKey));
                     openFolders.add(dateKey);
-                    openFolders.add(`${dateKey}|${timeKey}`);
                 }
 
                 renderSidebar();
@@ -3059,35 +3074,36 @@
         function rebuildIndexes() {
             noteById = new Map();
             notesByDate = new Map();
-            notesByFolder = new Map();
+            notesByMonth = new Map();
             notesByFolderId = new Map();
             notesByDateDirect = new Map();
             folderById = new Map();
             childFolders = new Map();
 
+            function _trackMonth(dateKey) {
+                const mk = getMonthKey(dateKey);
+                if (!notesByMonth.has(mk)) notesByMonth.set(mk, new Set());
+                notesByMonth.get(mk).add(dateKey);
+            }
+
             notes.forEach(note => {
                 noteById.set(note.id, note);
                 if (note.folderId && note.folderId.startsWith('date:')) {
-                    // Date-level direct note ->lives directly under a date folder
                     const dateKey = note.folderId.substring(5);
                     if (!notesByDate.has(dateKey)) notesByDate.set(dateKey, []);
                     notesByDate.get(dateKey).push(note);
                     if (!notesByDateDirect.has(dateKey)) notesByDateDirect.set(dateKey, []);
                     notesByDateDirect.get(dateKey).push(note);
+                    _trackMonth(dateKey);
                 } else if (note.folderId) {
-                    // Custom folder note
                     if (!notesByFolderId.has(note.folderId)) notesByFolderId.set(note.folderId, []);
                     notesByFolderId.get(note.folderId).push(note);
                 } else {
-                    // Temporal note ->group by date and time
                     const d = new Date(note.timestamp);
                     const dateKey = d.toLocaleDateString('en-CA');
-                    const timeKey = getMinuteKey(d);
-                    const compoundKey = dateKey + '|' + timeKey;
                     if (!notesByDate.has(dateKey)) notesByDate.set(dateKey, []);
                     notesByDate.get(dateKey).push(note);
-                    if (!notesByFolder.has(compoundKey)) notesByFolder.set(compoundKey, []);
-                    notesByFolder.get(compoundKey).push(note);
+                    _trackMonth(dateKey);
                 }
             });
 
@@ -3118,14 +3134,18 @@
                 const dateKey = note.folderId.substring(5);
                 _mapPush(notesByDate, dateKey, note);
                 _mapPush(notesByDateDirect, dateKey, note);
+                const mk = getMonthKey(dateKey);
+                if (!notesByMonth.has(mk)) notesByMonth.set(mk, new Set());
+                notesByMonth.get(mk).add(dateKey);
             } else if (note.folderId) {
                 _mapPush(notesByFolderId, note.folderId, note);
             } else {
                 const d = new Date(note.timestamp);
                 const dateKey = d.toLocaleDateString('en-CA');
-                const timeKey = getMinuteKey(d);
                 _mapPush(notesByDate, dateKey, note);
-                _mapPush(notesByFolder, dateKey + '|' + timeKey, note);
+                const mk = getMonthKey(dateKey);
+                if (!notesByMonth.has(mk)) notesByMonth.set(mk, new Set());
+                notesByMonth.get(mk).add(dateKey);
             }
         }
 
@@ -3139,9 +3159,14 @@
             } else {
                 const d = new Date(note.timestamp);
                 const dateKey = d.toLocaleDateString('en-CA');
-                const timeKey = getMinuteKey(d);
                 _mapRemove(notesByDate, dateKey, note.id);
-                _mapRemove(notesByFolder, dateKey + '|' + timeKey, note.id);
+                // Clean up month tracking if dateKey is now empty
+                if (!notesByDate.has(dateKey) || notesByDate.get(dateKey).length === 0) {
+                    notesByDate.delete(dateKey);
+                    const mk = getMonthKey(dateKey);
+                    const s = notesByMonth.get(mk);
+                    if (s) { s.delete(dateKey); if (s.size === 0) notesByMonth.delete(mk); }
+                }
             }
         }
 
@@ -3214,9 +3239,8 @@
                 if (folderById.has(id)) {
                     ctxNewFolder.style.display = 'flex';
                     ctxNewNote.style.display = 'flex';
-                } else if (id.length === 10 && !id.includes('|')) {
-                    ctxNewNote.style.display = 'flex';
                 } else {
+                    // Month or day temporal folder
                     ctxNewNote.style.display = 'flex';
                 }
             }
@@ -3303,10 +3327,9 @@
 
             if (folderById.has(targetId)) {
                 addNoteToFolder(targetId, 'custom');
-            } else if (targetId.length === 10 && !targetId.includes('|')) {
-                addNoteToFolder(targetId, 'date');
             } else {
-                addNoteToFolder(targetId, 'time');
+                // Month or day temporal folder — create date-level note
+                addNoteToFolder(targetId.length === 7 ? new Date().toLocaleDateString('en-CA') : targetId, 'date');
             }
             contextMenu.classList.remove('show');
         };
@@ -3388,8 +3411,7 @@
                         if (folder) folder.name = newName;
                     } else {
                         // Temporal folder ->use alias
-                        const realId = id.includes('|') ? id.split('|')[1] : id;
-                        folderAliases[realId] = newName;
+                        folderAliases[id] = newName;
                     }
                     saveData();
                 }
@@ -3441,11 +3463,7 @@
         }
 
         function getNotesInFolder(folderId) {
-            // Custom folder
             if (folderById.has(folderId)) return notesByFolderId.get(folderId) || [];
-            // Temporal: time folder (compound key with pipe)
-            if (folderId.includes('|')) return notesByFolder.get(folderId) || [];
-            // Temporal: date folder
             return notesByDate.get(folderId) || [];
         }
 
@@ -3457,15 +3475,7 @@
             if (folderType === 'custom') {
                 noteFolderId = folderId;
             } else if (folderType === 'date') {
-                // Date-level direct note ->lives directly under date folder
                 noteFolderId = 'date:' + folderId;
-            } else if (folderType === 'time') {
-                // Create temporal note in target time folder
-                const [datePart, timePart] = folderId.split('|');
-                const baseTime = new Date(datePart + 'T' + timePart + ':00').getTime();
-                const existing = getNotesInFolder(folderId);
-                const maxTs = existing.length > 0 ? Math.max(...existing.map(n => n.timestamp)) : baseTime;
-                newTimestamp = maxTs + 1;
             }
 
             const newNote = {
@@ -3502,12 +3512,11 @@
                     fid = f ? f.parentId : null;
                 }
             } else {
-                // Open temporal folders
+                // Open temporal folders (month + day)
                 const d = new Date(newTimestamp);
                 const dateKey = d.toLocaleDateString('en-CA');
-                const timeKey = getMinuteKey(d);
+                openFolders.add(getMonthKey(dateKey));
                 openFolders.add(dateKey);
-                openFolders.add(dateKey + '|' + timeKey);
             }
 
             justCreatedNoteId = newNote.id;
@@ -3525,9 +3534,7 @@
         function highlightDropTargets(dragType) {
             let selector = '';
             if (dragType === 'note') {
-                selector = '[data-drop-type="date"], [data-drop-type="time"], [data-drop-type="custom"]';
-            } else if (dragType === 'timeFolder') {
-                selector = '[data-drop-type="date"]';
+                selector = '[data-drop-type="date"], [data-drop-type="month"], [data-drop-type="custom"]';
             } else if (dragType === 'customFolder') {
                 selector = '[data-drop-type="custom"]';
             }
@@ -3571,8 +3578,6 @@
                 rebuildIndexes();
                 renderSidebar();
                 return;
-            } else if (data.type === 'timeFolder') {
-                handleTimeFolderDrop(data.folderId, targetId, targetType);
             } else if (data.type === 'customFolder') {
                 handleCustomFolderDrop(data.folderId, targetId, targetType);
             }
@@ -3591,26 +3596,6 @@
                     const f = folderById.get(fid);
                     fid = f ? f.parentId : null;
                 }
-            } else if (targetType === 'time') {
-                const [datePart, timePart] = targetId.split('|');
-                const baseTime = new Date(datePart + 'T' + timePart + ':00').getTime();
-                const existing = getNotesInFolder(targetId);
-                const maxTs = existing.length > 0 ? Math.max(...existing.map(n => n.timestamp)) : baseTime;
-
-                if (!note.folderId) {
-                    const oldDate = new Date(note.timestamp);
-                    const newDate = new Date(maxTs + 1);
-                    if (oldDate.toLocaleDateString('en-CA') === newDate.toLocaleDateString('en-CA') &&
-                        getMinuteKey(oldDate) === getMinuteKey(newDate)) {
-                        return;
-                    }
-                }
-
-                note.timestamp = maxTs + 1;
-                note.folderId = null;
-                const dk = datePart;
-                openFolders.add(dk);
-                openFolders.add(targetId);
             } else if (targetType === 'date') {
                 const newFolderId = 'date:' + targetId;
                 if (note.folderId === newFolderId) return;
@@ -3661,33 +3646,6 @@
             renderSidebar();
         }
 
-        function handleTimeFolderDrop(sourceFolderId, targetId, targetType) {
-            if (targetType !== 'date') return;
-
-            const [sourceDate, sourceTime] = sourceFolderId.split('|');
-            const targetDate = targetId;
-
-            if (sourceDate === targetDate) return;
-
-            const folderNotes = getNotesInFolder(sourceFolderId);
-            if (folderNotes.length === 0) return;
-
-            folderNotes.forEach(n => {
-                const d = new Date(n.timestamp);
-                const fullTime = d.toLocaleTimeString('en-GB');
-                const newTs = new Date(targetDate + 'T' + fullTime).getTime();
-                const msOffset = n.timestamp % 1000;
-                n.timestamp = newTs + msOffset;
-            });
-
-            openFolders.add(targetDate);
-            openFolders.add(targetDate + '|' + sourceTime);
-
-            saveData();
-            rebuildIndexes();
-            renderSidebar();
-        }
-
         function formatTime12h(date, includeSeconds) {
             let hours = date.getHours();
             const minutes = String(date.getMinutes()).padStart(2, '0');
@@ -3703,8 +3661,8 @@
             if (note.customTitle) return note.customTitle;
             ensureContentLoaded(note);
             if (!note.content.trim()) return formatTime12h(new Date(note.timestamp), true);
-            let title = note.content.replace(/\n/g, ' ').substring(0, 18);
-            if (note.content.length > 18) title += "...";
+            let title = note.content.replace(/\n/g, ' ').substring(0, 22);
+            if (note.content.length > 22) title += "...";
             return title;
         }
 
@@ -3724,10 +3682,9 @@
                     // Check temporal folder keys and aliases
                     const d = new Date(n.timestamp);
                     const dateKey = d.toLocaleDateString('en-CA');
-                    const timeKey = getMinuteKey(d);
+                    const monthKey = getMonthKey(dateKey);
                     const dateAlias = (folderAliases[dateKey] || "").toLowerCase();
-                    const timeAlias = (folderAliases[timeKey] || "").toLowerCase();
-                    const timeName = formatTime12h(d, false).toLowerCase();
+                    const monthAlias = (folderAliases[monthKey] || "").toLowerCase();
 
                     // Check custom folder name
                     let folderName = "";
@@ -3739,10 +3696,9 @@
                     return title.includes(searchQuery) ||
                         content.includes(searchQuery) ||
                         dateKey.includes(searchQuery) ||
-                        timeKey.includes(searchQuery) ||
+                        monthKey.includes(searchQuery) ||
                         dateAlias.includes(searchQuery) ||
-                        timeAlias.includes(searchQuery) ||
-                        timeName.includes(searchQuery) ||
+                        monthAlias.includes(searchQuery) ||
                         folderName.includes(searchQuery);
                 });
             }
@@ -3773,19 +3729,16 @@
                 if (folderEl) fragment.appendChild(folderEl);
             });
 
-            // --- 2. Render temporal + date-level notes ---
+            // --- 2. Render temporal + date-level notes (month → day → note) ---
             const temporalNotes = displayNotes.filter(n => !n.folderId);
             const dateLevelNotes = displayNotes.filter(n => isDateLevelNote(n));
 
-            // Group temporal notes by date ->time
-            const grouped = {};
+            // Group temporal notes by date only
+            const notesByDay = {};
             temporalNotes.forEach(note => {
-                const dateObj = new Date(note.timestamp);
-                const dateKey = dateObj.toLocaleDateString('en-CA');
-                const timeKey = getMinuteKey(dateObj);
-                if (!grouped[dateKey]) grouped[dateKey] = {};
-                if (!grouped[dateKey][timeKey]) grouped[dateKey][timeKey] = [];
-                grouped[dateKey][timeKey].push(note);
+                const dateKey = new Date(note.timestamp).toLocaleDateString('en-CA');
+                if (!notesByDay[dateKey]) notesByDay[dateKey] = [];
+                notesByDay[dateKey].push(note);
             });
 
             // Group date-level notes by date
@@ -3797,85 +3750,111 @@
             });
 
             const todayKey = new Date().toLocaleDateString('en-CA');
-            const allDateKeys = new Set([...Object.keys(grouped), ...Object.keys(dateLevelByDate)]);
-            const dateKeys = [...allDateKeys].sort().reverse();
+            const todayMonthKey = getMonthKey(todayKey);
 
-            // Helper: render a date folder with direct notes + time subfolders
-            function renderDateFolder(dateKey) {
-                const dateName = folderAliases[dateKey] || dateKey;
-                const timeGroup = grouped[dateKey] || {};
-                const directNotes = dateLevelByDate[dateKey] || [];
-                const allDateNotes = [...Object.values(timeGroup).flat(), ...directNotes];
-
-                const isDateParentActive = containsCurrent(allDateNotes);
-                const isDateBookmarked = allDateNotes.length > 0 && allDateNotes.every(n => n.isBookmarked);
-                /*const isOpen = openFolders.has(dateKey) || searchQuery.length > 0 || filterBookmarked || isDateParentActive;*/
-                const isOpen = openFolders.has(dateKey) || searchQuery.length > 0 || filterBookmarked;
-                const dateFolder = createFolder(dateKey, dateName, 'date', isOpen, isDateBookmarked, isDateParentActive, allDateNotes.length);
-
-                // Skip rendering children if folder is closed (major perf win at scale)
-                if (!isOpen) return dateFolder;
-
-                const children = dateFolder.querySelector('.tree-children');
-
-                // 1. Direct date-level notes (above subfolders)
-                directNotes.sort((a, b) => b.timestamp - a.timestamp).forEach(note => {
-                    children.appendChild(createFileItem(note));
-                });
-
-                // 2. Time subfolders
-                Object.keys(timeGroup).sort().reverse().forEach(timeKey => {
-                    const timeNotes = timeGroup[timeKey];
-                    const timeName = folderAliases[timeKey] || formatTime12h(new Date(timeNotes[0].timestamp), false);
-                    const isTimeBookmarked = timeNotes.every(n => n.isBookmarked);
-                    const isTimeParentActive = containsCurrent(timeNotes);
-
-                    const compoundTimeId = `${dateKey}|${timeKey}`;
-                    const isTimeOpen = openFolders.has(compoundTimeId) || searchQuery.length > 0 || filterBookmarked /*|| isTimeParentActive*/;
-
-                    const timeFolder = createFolder(compoundTimeId, timeName, 'time', isTimeOpen, isTimeBookmarked, isTimeParentActive, timeNotes.length);
-
-                    // Skip rendering note items if time folder is closed
-                    if (isTimeOpen) {
-                        timeNotes.forEach(note => {
-                            timeFolder.querySelector('.tree-children').appendChild(createFileItem(note));
-                        });
-                    }
-
-                    timeFolder.classList.add('sub-folder');
-                    children.appendChild(timeFolder);
-                });
-
-                return dateFolder;
-            }
-
-            // Always render TODAY section as a drop zone
-            const separator = document.createElement('div');
-            separator.className = 'today-separator';
-            separator.innerText = "TODAY";
-            attachTodayDropHandlers(separator);
-            fragment.appendChild(separator);
-
-            // Render today's date folder if it has content
-            if (grouped[todayKey] || dateLevelByDate[todayKey]) {
-                fragment.appendChild(renderDateFolder(todayKey));
-            } else {
-                const emptyToday = document.createElement('div');
-                emptyToday.className = 'today-empty';
-                emptyToday.textContent = "No notes yet today.";
-                fragment.appendChild(emptyToday);
-            }
-
-            const footer = document.createElement('div');
-            footer.className = 'today-footer';
-            attachTodayDropHandlers(footer);
-            fragment.appendChild(footer);
-
-            // Render older date folders (skip today, already rendered)
-            dateKeys.forEach(dateKey => {
-                if (dateKey === todayKey) return;
-                fragment.appendChild(renderDateFolder(dateKey));
+            // Collect all dateKeys that have notes, group by month
+            const allDateKeys = new Set([...Object.keys(notesByDay), ...Object.keys(dateLevelByDate)]);
+            const dateKeysByMonth = {};
+            allDateKeys.forEach(dk => {
+                const mk = getMonthKey(dk);
+                if (!dateKeysByMonth[mk]) dateKeysByMonth[mk] = [];
+                dateKeysByMonth[mk].push(dk);
             });
+            const monthKeys = Object.keys(dateKeysByMonth).sort().reverse();
+            monthKeys.forEach(mk => dateKeysByMonth[mk].sort().reverse());
+
+            // Display helpers
+            function getMonthDisplayName(monthKey) {
+                if (folderAliases[monthKey]) return folderAliases[monthKey];
+                const [year, month] = monthKey.split('-');
+                const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                return date.toLocaleString('en-US', { month: 'long' }).toLowerCase() + ' ' + year;
+            }
+
+            function getDayDisplayName(dateKey) {
+                if (folderAliases[dateKey]) return folderAliases[dateKey];
+                const d = new Date(dateKey + 'T12:00:00');
+                const dayName = d.toLocaleString('en-US', { weekday: 'short' }).toLowerCase();
+                return dayName + ' ' + d.getDate();
+            }
+
+            // Helper: render a day folder with notes inside
+            function renderDayFolder(dateKey, isToday) {
+                const dayNotes = notesByDay[dateKey] || [];
+                const directNotes = dateLevelByDate[dateKey] || [];
+                const allDayNotes = [...dayNotes, ...directNotes];
+
+                const isDayParentActive = containsCurrent(allDayNotes);
+                const isDayBookmarked = allDayNotes.length > 0 && allDayNotes.every(n => n.isBookmarked);
+                const isOpen = openFolders.has(dateKey) || searchQuery.length > 0 || filterBookmarked;
+                const dayFolder = createFolder(dateKey, getDayDisplayName(dateKey), 'date', isOpen, isDayBookmarked, isDayParentActive, allDayNotes.length);
+
+                // Add "today" label inline after the day name text
+                if (isToday) {
+                    const header = dayFolder.querySelector('.tree-header');
+                    const itemText = header.querySelector('.item-text');
+                    const todayEl = document.createElement('span');
+                    todayEl.className = 'today-label';
+                    todayEl.textContent = ' today';
+                    itemText.appendChild(todayEl);
+                    attachTodayDropHandlers(header);
+                }
+
+                dayFolder.classList.add('sub-folder');
+
+                if (!isOpen) return dayFolder;
+                const children = dayFolder.querySelector('.tree-children');
+
+                // Anchored notes first (no time prefix), then unanchored sorted newest-first
+                const anchored = allDayNotes.filter(n => isAnchoredNote(n));
+                const unanchored = allDayNotes.filter(n => !isAnchoredNote(n));
+                unanchored.sort((a, b) => b.timestamp - a.timestamp);
+
+                anchored.forEach(note => children.appendChild(createFileItem(note, false)));
+                unanchored.forEach(note => {
+                    const isDateLevel = note.folderId && note.folderId.startsWith('date:');
+                    children.appendChild(createFileItem(note, !isDateLevel));
+                });
+
+                return dayFolder;
+            }
+
+            // Helper: render a month folder
+            function renderMonthFolder(monthKey, dayKeys) {
+                const allMonthNotes = dayKeys.flatMap(dk => [...(notesByDay[dk] || []), ...(dateLevelByDate[dk] || [])]);
+                const isMonthParentActive = containsCurrent(allMonthNotes);
+                const isMonthBookmarked = allMonthNotes.length > 0 && allMonthNotes.every(n => n.isBookmarked);
+                const isOpen = openFolders.has(monthKey) || searchQuery.length > 0 || filterBookmarked;
+                const monthFolder = createFolder(monthKey, getMonthDisplayName(monthKey), 'month', isOpen, isMonthBookmarked, isMonthParentActive, allMonthNotes.length);
+
+                if (!isOpen) return monthFolder;
+                const children = monthFolder.querySelector('.tree-children');
+
+                // For the current month, ensure today's dateKey is included even if empty
+                const isTodayMonth = monthKey === todayMonthKey;
+                const dayKeysToRender = isTodayMonth && !dayKeys.includes(todayKey)
+                    ? [todayKey, ...dayKeys]
+                    : dayKeys;
+
+                dayKeysToRender.forEach(dk => {
+                    children.appendChild(renderDayFolder(dk, dk === todayKey));
+                });
+
+                return monthFolder;
+            }
+
+            // Render month folders (newest first)
+            monthKeys.forEach(monthKey => {
+                fragment.appendChild(renderMonthFolder(monthKey, dateKeysByMonth[monthKey]));
+            });
+
+            // If today's month has no notes yet, still render it
+            if (!dateKeysByMonth[todayMonthKey]) {
+                if (!openFolders.has(todayMonthKey) && !searchQuery && !filterBookmarked) {
+                    openFolders.add(todayMonthKey);
+                }
+                fragment.appendChild(renderMonthFolder(todayMonthKey, []));
+            }
 
             fileTree.appendChild(fragment);
             focusedItemIndex = -1;
@@ -3978,12 +3957,12 @@
             };
             controls.insertBefore(addBtn, controls.firstChild);
 
-            // Drag: time folders and custom folders are draggable
-            if (type === 'time' || type === 'custom') {
+            // Drag: only custom folders are draggable
+            if (type === 'custom') {
                 header.setAttribute('draggable', 'true');
                 header.addEventListener('dragstart', (e) => {
                     e.stopPropagation();
-                    const dragType = type === 'time' ? 'timeFolder' : 'customFolder';
+                    const dragType = 'customFolder';
                     e.dataTransfer.setData('text/plain', JSON.stringify({
                         type: dragType,
                         folderId: id
@@ -4033,7 +4012,7 @@
             return container;
         }
 
-        function createFileItem(note) {
+        function createFileItem(note, showTimePrefix) {
             const anchored = isAnchoredNote(note);
             const el = document.createElement('div');
             el.className = `file-item ${currentNoteId === note.id ? 'active' : ''} ${anchored ? 'anchored' : ''}`.trim();
@@ -4043,8 +4022,13 @@
                 ? getAnchorIconMarkup()
                 : '<span class="note-icon">&mdash;</span>';
 
+            const timePrefix = (showTimePrefix && !anchored)
+                ? `<span class="note-time-prefix">${formatTime12h(new Date(note.timestamp), false)}</span>`
+                : '';
+
             el.innerHTML = `
                 ${leadingIcon}
+                ${timePrefix}
                 <span class="item-text">${escapeHTML(getNoteTitle(note))}</span>
                 <div class="item-controls">
                     <span class="control-btn menu">&#8942;</span>
@@ -4364,10 +4348,9 @@
                         trashedNotes.push(n);
                     });
                     notes = notes.filter(n => !notesToDelete.includes(n));
-                    const rawId = id.includes('|') ? id.split('|')[1] : id;
-                    if (folderAliases[rawId]) {
-                        snapshot.aliases[rawId] = folderAliases[rawId];
-                        delete folderAliases[rawId];
+                    if (folderAliases[id]) {
+                        snapshot.aliases[id] = folderAliases[id];
+                        delete folderAliases[id];
                     }
                 }
                 if (currentNoteId && !notes.some(n => n.id === currentNoteId)) prepareGhostNote();
