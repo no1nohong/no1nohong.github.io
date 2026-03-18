@@ -523,6 +523,7 @@
             margin-top: 6px;
             height: auto;
             min-height: 30px;
+            position: relative;
         }
 
         .tree-header[data-drop-type="month"] .item-text {
@@ -550,11 +551,18 @@
         .tree-header[data-drop-type="month"] .folder-count {
             opacity: 0.4;
             font-size: 10px;
+            background: none;
         }
 
-        /* Hide controls on month headers to give more space */
+        /* Month controls: hidden by default, appear on hover in normal flex flow.
+           The ::after line (flex:1) shrinks to fill remaining space around them. */
         .tree-header[data-drop-type="month"] .item-controls {
             display: none;
+            order: 1;
+        }
+
+        .tree-header[data-drop-type="month"]::after {
+            order: 0;
         }
 
         .tree-header[data-drop-type="month"]:hover .item-controls {
@@ -1270,7 +1278,6 @@
         .folder-count {
             font-size: 10px;
             color: var(--text-dim);
-            margin-left: 6px;
             font-weight: 400;
             font-variant-numeric: tabular-nums;
             background: var(--earth-dimmer);
