@@ -539,34 +539,42 @@
             opacity: 0.5;
         }
 
-        .tree-header[data-drop-type="month"]::after {
+        /* Line before controls: fills space between count and controls/star */
+        .tree-header[data-drop-type="month"]::before {
             content: '';
             flex: 1;
             height: 1px;
             background: var(--text-color);
             margin-left: 8px;
             opacity: 0.13;
+            order: 1;
         }
 
         .tree-header[data-drop-type="month"] .folder-count {
             opacity: 0.4;
             font-size: 10px;
             background: none;
+            margin-right: 0!important;
         }
 
-        /* Month controls: hidden by default, appear on hover in normal flex flow.
-           The ::after line (flex:1) shrinks to fill remaining space around them. */
         .tree-header[data-drop-type="month"] .item-controls {
             display: none;
-            order: 1;
-        }
-
-        .tree-header[data-drop-type="month"]::after {
-            order: 0;
+            order: 2;
         }
 
         .tree-header[data-drop-type="month"]:hover .item-controls {
             display: flex;
+        }
+
+        /* Line after controls: matches the star-btn space so ⋮ aligns with other rows */
+        .tree-header[data-drop-type="month"]::after {
+            content: '';
+            width: 18px;
+            flex-shrink: 0;
+            height: 1px;
+            background: var(--text-color);
+            opacity: 0.13;
+            order: 4;
         }
 
         .tree-header[data-drop-type="month"] .star-btn {
@@ -713,11 +721,12 @@
         }
 
         .tree-header.drop-target {
-            outline: 2px solid var(--earth-primary);
+            outline: 1px solid var(--earth-primary);
             outline-offset: -2px;
             border-radius: 4px;
             background: var(--earth-dimmer);
             animation: dropTargetFade 0.3s ease-in;
+            opacity: .5;
         }
 
         @keyframes dropTargetFade {
@@ -1286,6 +1295,7 @@
             line-height: 1.3;
             pointer-events: none;
             user-select: none;
+            margin-right: 5px;
         }
 
         .empty-state {
@@ -2004,16 +2014,20 @@
             return !!(note && note.anchoredDateKey);
         }
 
-        function getAnchorTargetDateKey(note) {
+        // Returns the container ID that a note would anchor to.
+        // - Custom folder note → its folderId (the folder it lives in)
+        // - Date-level note (folderId="date:YYYY-MM-DD") → the dateKey
+        // - Temporal note (no folderId) → dateKey from its timestamp
+        function getAnchorTargetKey(note) {
             if (!note) return null;
-            if (isCustomFolderNote(note)) return null;
+            if (isCustomFolderNote(note)) return note.folderId;
             if (note.folderId && note.folderId.startsWith('date:')) return note.folderId.substring(5);
             if (!note.folderId) return getDateKeyFromTimestamp(note.timestamp);
             return null;
         }
 
         function canAnchorNote(note) {
-            return !!getAnchorTargetDateKey(note);
+            return !!getAnchorTargetKey(note);
         }
 
         function openFolderChain(folderId) {
@@ -2025,20 +2039,15 @@
             }
         }
 
+        // Runs on load. Ensures only one note is anchored per container,
+        // and that anchor state is consistent.
         function enforceAnchorConstraints() {
-            const anchoredByDate = new Set();
+            const anchoredByKey = new Set(); // tracks which containers already have an anchor
             let changed = false;
 
             notes.forEach(note => {
-                const originalAnchorKey = note.anchoredDateKey || null;
-                const originalOriginFolderId = note.anchorOriginFolderId || null;
-                const originalFolderId = note.folderId || null;
-
-                note.anchoredDateKey = originalAnchorKey;
-                note.anchorOriginFolderId = originalOriginFolderId;
-                note.folderId = originalFolderId;
-
                 if (!note.anchoredDateKey) {
+                    // Not anchored — clean up stale origin if present
                     if (note.anchorOriginFolderId !== null) {
                         note.anchorOriginFolderId = null;
                         changed = true;
@@ -2046,20 +2055,10 @@
                     return;
                 }
 
-                const dateKey = getDateKeyFromTimestamp(note.timestamp);
-                if (isCustomFolderNote(note)) {
-                    note.anchoredDateKey = null;
-                    note.anchorOriginFolderId = null;
-                    changed = true;
-                    return;
-                }
+                const targetKey = note.anchoredDateKey;
 
-                if (note.anchoredDateKey !== dateKey) {
-                    note.anchoredDateKey = dateKey;
-                    changed = true;
-                }
-
-                if (anchoredByDate.has(dateKey)) {
+                // Only one anchor per container — if duplicate, un-anchor this one
+                if (anchoredByKey.has(targetKey)) {
                     note.folderId = note.anchorOriginFolderId || null;
                     note.anchoredDateKey = null;
                     note.anchorOriginFolderId = null;
@@ -2067,11 +2066,16 @@
                     return;
                 }
 
-                anchoredByDate.add(dateKey);
-                const anchoredFolderId = 'date:' + dateKey;
-                if (note.folderId !== anchoredFolderId) {
-                    note.folderId = anchoredFolderId;
-                    changed = true;
+                anchoredByKey.add(targetKey);
+
+                // For non-custom-folder notes, ensure folderId is 'date:' + targetKey
+                // For custom folder notes, folderId stays as the folder ID
+                if (!isCustomFolderNote(note) && !folderById.has(targetKey)) {
+                    const anchoredFolderId = 'date:' + targetKey;
+                    if (note.folderId !== anchoredFolderId) {
+                        note.folderId = anchoredFolderId;
+                        changed = true;
+                    }
                 }
             });
 
@@ -2082,11 +2086,12 @@
             if (!note) return false;
 
             if (shouldAnchor) {
-                const dateKey = getAnchorTargetDateKey(note);
-                if (!dateKey) return false;
+                const targetKey = getAnchorTargetKey(note);
+                if (!targetKey) return false;
 
+                // Un-anchor any other note already anchored to the same container
                 notes.forEach(other => {
-                    if (other.id !== note.id && other.anchoredDateKey === dateKey) {
+                    if (other.id !== note.id && other.anchoredDateKey === targetKey) {
                         setNoteAnchored(other, false);
                     }
                 });
@@ -2094,13 +2099,23 @@
                 const oldFolderId = note.folderId;
                 const oldTimestamp = note.timestamp;
 
+                // Remember where the note came from so unanchor can restore it
                 if (!note.anchoredDateKey) {
                     note.anchorOriginFolderId = note.folderId || null;
                 }
 
-                note.anchoredDateKey = dateKey;
-                note.folderId = 'date:' + dateKey;
-                openFolders.add(dateKey);
+                // Set the anchor marker
+                note.anchoredDateKey = targetKey;
+
+                // For custom folder notes: keep folderId as-is (note stays in its folder)
+                // For temporal/date notes: move to date-level slot
+                if (!isCustomFolderNote(note)) {
+                    note.folderId = 'date:' + targetKey;
+                    openFolders.add(targetKey);
+                } else {
+                    openFolderChain(note.folderId);
+                }
+
                 indexUpdate(note, oldFolderId, oldTimestamp);
                 return true;
             }
@@ -2306,6 +2321,18 @@
             }));
             deletedFolders = parseStoredJSON('imminote_deleted_folders', [], Array.isArray);
             purgeExpiredTrash();
+            // One-time recovery: fix notes with broken 'date:' folderId from bad anchor attempt
+            notes.forEach(n => {
+                if (n.folderId && n.folderId.startsWith('date:')) {
+                    const dk = n.folderId.substring(5);
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(dk)) {
+                        // Garbage dateKey — restore from anchorOriginFolderId or make temporal
+                        n.folderId = n.anchorOriginFolderId || null;
+                        n.anchoredDateKey = null;
+                        n.anchorOriginFolderId = null;
+                    }
+                }
+            });
             needsAnchorNormalization = enforceAnchorConstraints();
 
             // Restore font size preference
@@ -2334,11 +2361,12 @@
             // Update backdrop on resize
             window.addEventListener('resize', updateBackdrop);
 
+
+            
             // Raise toolbar above virtual keyboard on mobile.
             // When the keyboard opens, visualViewport.height shrinks;
             // we reposition the toolbar to sit just above the keyboard.
             if (window.visualViewport) {
-                const toolbar = document.getElementById('toolbar');
                 const KEYBOARD_THRESHOLD = 150;
                 function adjustToolbarForKeyboard() {
                     const vv = window.visualViewport;
@@ -3277,7 +3305,6 @@
         }
 
         // --- Features Handlers ---
-
         document.getElementById('ctxSaveAs').onclick = () => {
             if (!contextTarget || contextTarget.type !== 'file') return;
             const note = noteById.get(contextTarget.id);
@@ -3896,10 +3923,12 @@
 
             const children = folderEl.querySelector('.tree-children');
 
-            // Render child notes
-            folderNotes.sort((a, b) => b.timestamp - a.timestamp).forEach(note => {
-                children.appendChild(createFileItem(note));
-            });
+            // Render child notes — anchored first, then by timestamp
+            const anchoredFolderNotes = folderNotes.filter(n => isAnchoredNote(n));
+            const unanchoredFolderNotes = folderNotes.filter(n => !isAnchoredNote(n));
+            unanchoredFolderNotes.sort((a, b) => b.timestamp - a.timestamp);
+            anchoredFolderNotes.forEach(note => children.appendChild(createFileItem(note)));
+            unanchoredFolderNotes.forEach(note => children.appendChild(createFileItem(note)));
 
             // Render nested subfolders
             subFolders.forEach(sub => {
@@ -3955,14 +3984,14 @@
             // "+" button on ALL folder types
             const controls = header.querySelector('.item-controls');
             const addBtn = document.createElement('span');
-            addBtn.className = 'control-btn add-note';
-            addBtn.textContent = '+note';
-            addBtn.title = 'new note';
-            addBtn.onclick = (e) => {
-                e.stopPropagation();
-                addNoteToFolder(id, type);
-            };
-            controls.insertBefore(addBtn, controls.firstChild);
+            //addBtn.className = 'control-btn add-note';
+            //addBtn.textContent = '+note';
+            //addBtn.title = 'new note';
+            //addBtn.onclick = (e) => {
+            //    e.stopPropagation();
+            //    addNoteToFolder(id, type);
+            //};
+            //controls.insertBefore(addBtn, controls.firstChild);
 
             // Drag: only custom folders are draggable
             if (type === 'custom') {
@@ -4772,6 +4801,7 @@
             }
         }, 300);
 
+        // On text entry
         editor.addEventListener('input', function () {
             const content = editor.value.trim();
 
@@ -4802,7 +4832,42 @@
                 }
             }
             updateWordCount();
+            ensureCursorVisible();
         });
+
+        // --- Scroll to keep cursor visible above toolbar ---
+        // Uses a reusable offscreen clone to measure cursor Y position.
+        // Only runs the measurement when cursor is in the last ~500 chars (likely near bottom).
+        const _scrollClone = document.createElement('textarea');
+        _scrollClone.setAttribute('aria-hidden', 'true');
+        _scrollClone.setAttribute('tabindex', '-1');
+        _scrollClone.style.cssText = `
+            position: absolute; left: -9999px; top: -9999px;
+            visibility: hidden; pointer-events: none;
+            width: ${editor.clientWidth}px;
+            font: ${getComputedStyle(editor).font};
+            line-height: ${getComputedStyle(editor).lineHeight};
+            padding: ${getComputedStyle(editor).padding};
+            border: ${getComputedStyle(editor).border};
+            white-space: pre-wrap; word-wrap: break-word;
+            overflow: hidden; height: auto;
+        `;
+        document.body.appendChild(_scrollClone);
+
+        function ensureCursorVisible() {
+            const pos = editor.selectionStart;
+            // Skip expensive measurement if cursor is far from end
+            if (pos < editor.value.length - 500 && editor.scrollTop < editor.scrollHeight - editor.clientHeight - 100) return;
+
+            _scrollClone.style.width = editor.clientWidth + 'px';
+            _scrollClone.value = editor.value.substring(0, pos);
+            const cursorY = _scrollClone.scrollHeight;
+            const visibleBottom = editor.scrollTop + editor.clientHeight - 90; // 90px toolbar buffer
+
+            if (cursorY > visibleBottom) {
+                editor.scrollTop = cursorY - editor.clientHeight + 120;
+            }
+        }
 
         // --- Tap editor to close sidebar on small screens ---
         editor.addEventListener('click', function () {
