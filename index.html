@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
     <meta charset="UTF-8">
@@ -9,7 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover">
     <meta name="description"
         content="Imminote - a fast, offline-first note-taking app. No cloud, no frameworks, just your thoughts.">
-    <meta name="theme-color" content="#1e1e1e">
+    <meta name="theme-color" content="#f5f0e8">
     <title>&#10084; Imminote</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1612,6 +1612,19 @@
                 display: block;
             }
 
+            .item-controls,
+            .star-btn {
+                opacity: .2;
+            }
+
+            .tree-header[data-drop-type="month"] .item-controls {
+                display: flex;
+            }
+
+            .item-controls {
+                display: flex;
+            }
+
             #editor,
             #preview {
                 padding: 28px 28px 80px 28px;
@@ -1753,7 +1766,7 @@
 
 
     </style>
-    <script>if (localStorage.getItem('imminote_theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');</script>
+    <script>if (localStorage.getItem('imminote_theme') === 'dark') document.documentElement.removeAttribute('data-theme');</script>
 </head>
 
 <body>
@@ -1833,11 +1846,13 @@
     <div id="contextMenu" class="context-menu" role="menu" aria-label="Note actions">
         <div class="context-item" id="ctxNewNote" style="display: none;"><span>+</span> new note</div>
         <div class="context-item" id="ctxNewFolder" style="display: none;"><span>+</span> new folder</div>
+        <div class="context-item" id="ctxFavorite" style="display: none;"><span>&#9733;</span><span id="ctxFavoriteLabel">favorite</span></div>
         <div class="context-item" id="ctxAnchor" style="display: none;"></div>
         <div class="context-item" id="ctxRestore" style="display: none;"><span>&#8617;</span> restore</div>
         <div class="context-divider" id="ctxDivider"></div>
         <div class="context-item" id="ctxSaveAs" style="display: none;"><span>&#11015;</span> save As...</div>
         <div class="context-item" id="ctxRename" style="display: none;"><span>&#9998;</span> rename</div>
+        <div class="context-item" id="ctxMove" style="display: none;"><span>&#8644;</span> move</div>
         <div class="context-item context-item-danger" id="ctxDelete"><span>&#10005;</span> delete</div>
     </div>
 
@@ -1848,7 +1863,7 @@
         <div class="context-item" id="ioImport"><span>&#8595;</span> import backup</div>
         <div class="context-divider boundaries-divider"></div>
         <div class="context-item" id="ioToggleBoundaries"><span id="ioBoundaryIcon">&#9632;</span><span id="ioBoundaryLabel">writing boundaries</span></div>
-        <div class="context-item" id="ioToggleTheme"><span class ="context-icon"id="ioThemeIcon">&#9790;</span><span id="ioThemeLabel">theme: dark</span></div>
+        <div class="context-item" id="ioToggleTheme"><span class ="context-icon"id="ioThemeIcon">&#9728;</span><span id="ioThemeLabel">theme: light</span></div>
     </div>
 
     <div id="formatMenu" class="format-menu">
@@ -1891,10 +1906,11 @@
         let templateSaveMode = false;
         let templates = [];
         let writingBoundariesEnabled = true;
-        let darkMode = true;
+        let darkMode = false;
         let deletedNotes = [];
         let deletedFolders = [];
         let trashExpanded = false;
+        let moveMode = null; // { type: 'note'|'customFolder', noteIds: [], folderId: null }
         const GHOST_PLACEHOLDERS = [
             "Type to create a note...",
             "What's on your mind?",
@@ -2340,7 +2356,7 @@
             applyFontSize(savedFontSize && FONT_SIZES[savedFontSize] ? savedFontSize : 'medium');
 
             // Restore theme preference (FOUC handled by inline script in <head>)
-            updateThemeButton(localStorage.getItem('imminote_theme') || 'dark');
+            updateThemeButton(localStorage.getItem('imminote_theme') || 'light');
 
             // Restore writing boundary preference (default: on)
             const savedWritingBoundaries = localStorage.getItem('imminote_writing_boundaries');
@@ -3234,6 +3250,34 @@
             _mapRemove(childFolders, pid, folder.id);
         }
 
+        // --- Long-press for mobile context menu ---
+        function attachLongPress(el, callback, delay = 500) {
+            let timer = null;
+            let didLongPress = false;
+            el.addEventListener('touchstart', (e) => {
+                didLongPress = false;
+                timer = setTimeout(() => {
+                    didLongPress = true;
+                    // Synthesize position from touch point for menu placement
+                    const touch = e.touches[0];
+                    const synth = { target: el, stopPropagation() {}, preventDefault() {},
+                        getBoundingClientRect: () => ({ top: touch.clientY, bottom: touch.clientY, left: touch.clientX, right: touch.clientX }) };
+                    // Use the touch target for getBoundingClientRect in showContextMenu
+                    callback(synth);
+                }, delay);
+            }, { passive: true });
+            el.addEventListener('touchmove', () => {
+                clearTimeout(timer);
+            }, { passive: true });
+            el.addEventListener('touchend', (e) => {
+                clearTimeout(timer);
+                if (didLongPress) {
+                    e.preventDefault(); // prevent click after long-press
+                    didLongPress = false;
+                }
+            });
+        }
+
         // --- Context Menu Logic ---
         function showContextMenu(e, type, id, isTrash) {
             e.stopPropagation();
@@ -3245,6 +3289,9 @@
             const ctxRestore = document.getElementById('ctxRestore');
             const ctxRename = document.getElementById('ctxRename');
             const ctxDivider = document.getElementById('ctxDivider');
+            const ctxFavorite = document.getElementById('ctxFavorite');
+            const ctxFavoriteLabel = document.getElementById('ctxFavoriteLabel');
+            const ctxMove = document.getElementById('ctxMove');
 
             // Hide all optional items first
             if (ctxAnchor) ctxAnchor.style.display = 'none';
@@ -3253,6 +3300,8 @@
             ctxNewNote.style.display = 'none';
             ctxRestore.style.display = 'none';
             ctxRename.style.display = 'none';
+            ctxFavorite.style.display = 'none';
+            ctxMove.style.display = 'none';
             ctxDivider.style.display = '';
 
             if (isTrash) {
@@ -3263,17 +3312,38 @@
                 ctxSaveAs.style.display = 'flex';
                 ctxRename.style.display = 'flex';
                 const note = noteById.get(id);
+                // Favorite
+                ctxFavorite.style.display = 'flex';
+                if (note) ctxFavoriteLabel.textContent = note.isBookmarked ? 'unfavorite' : 'favorite';
+                // Anchor
                 if (ctxAnchor && note && canAnchorNote(note)) {
                     ctxAnchor.style.display = 'flex';
                     if (ctxAnchorLabel) {
                         ctxAnchorLabel.textContent = isAnchoredNote(note) ? 'unanchor note' : 'anchor note';
                     }
                 }
+                // Move (mobile only, non-anchored)
+                if (isMobileDevice && note && !isAnchoredNote(note)) {
+                    ctxMove.style.display = 'flex';
+                }
             } else if (type === 'folder') {
                 ctxRename.style.display = 'flex';
+                // Favorite
+                ctxFavorite.style.display = 'flex';
+                const folder = folderById.get(id);
+                if (folder) {
+                    ctxFavoriteLabel.textContent = folder.isBookmarked ? 'unfavorite' : 'favorite';
+                } else {
+                    // Temporal folder — check if all notes in it are bookmarked
+                    const folderNotes = getNotesInFolder(id);
+                    const allBookmarked = folderNotes.length > 0 && folderNotes.every(n => n.isBookmarked);
+                    ctxFavoriteLabel.textContent = allBookmarked ? 'unfavorite' : 'favorite';
+                }
                 if (folderById.has(id)) {
                     ctxNewFolder.style.display = 'flex';
                     ctxNewNote.style.display = 'flex';
+                    // Move (mobile only, custom folders)
+                    if (isMobileDevice) ctxMove.style.display = 'flex';
                 } else {
                     // Month or day temporal folder
                     ctxNewNote.style.display = 'flex';
@@ -3378,6 +3448,80 @@
                 renderSidebar();
                 contextMenu.classList.remove('show');
             };
+        }
+
+        document.getElementById('ctxFavorite').onclick = () => {
+            if (!contextTarget || contextTarget.isTrash) return;
+            const { type, id } = contextTarget;
+            if (type === 'file') {
+                const note = noteById.get(id);
+                if (note) note.isBookmarked = !note.isBookmarked;
+            } else {
+                // Folder — toggle all notes + folder itself
+                const folderNotes = getNotesInFolder(id);
+                const anyUnbookmarked = folderNotes.some(n => !n.isBookmarked);
+                folderNotes.forEach(n => n.isBookmarked = anyUnbookmarked);
+                if (folderById.has(id)) {
+                    const folder = folderById.get(id);
+                    folder.isBookmarked = anyUnbookmarked;
+                }
+            }
+            saveData();
+            renderSidebar();
+            contextMenu.classList.remove('show');
+        };
+
+        document.getElementById('ctxMove').onclick = () => {
+            if (!contextTarget || contextTarget.isTrash) return;
+            const { type, id } = contextTarget;
+            contextMenu.classList.remove('show');
+
+            if (type === 'file') {
+                const note = noteById.get(id);
+                if (!note || isAnchoredNote(note)) return;
+                const noteIds = selectedNoteIds.has(id) && selectedNoteIds.size > 1
+                    ? [...selectedNoteIds].filter(nid => { const n = noteById.get(nid); return n && !isAnchoredNote(n); })
+                    : [id];
+                moveMode = { type: 'note', noteIds };
+                highlightDropTargets('note');
+            } else if (type === 'folder' && folderById.has(id)) {
+                moveMode = { type: 'customFolder', folderId: id };
+                highlightDropTargets('customFolder');
+            }
+            if (moveMode) {
+                document.addEventListener('click', moveModeClickHandler, { capture: true });
+                document.addEventListener('keydown', moveModeCancelHandler);
+            }
+        };
+
+        function moveModeClickHandler(e) {
+            const target = e.target.closest('.drop-target');
+            if (target) {
+                e.stopPropagation();
+                e.preventDefault();
+                const targetId = target.getAttribute('data-folder-id');
+                const targetType = target.getAttribute('data-drop-type');
+                if (targetId && targetType && moveMode) {
+                    handleDrop(
+                        moveMode.type === 'note'
+                            ? { type: 'note', noteId: moveMode.noteIds[0], noteIds: moveMode.noteIds }
+                            : { type: 'customFolder', folderId: moveMode.folderId },
+                        targetId, targetType
+                    );
+                }
+            }
+            exitMoveMode();
+        }
+
+        function moveModeCancelHandler(e) {
+            if (e.key === 'Escape') exitMoveMode();
+        }
+
+        function exitMoveMode() {
+            moveMode = null;
+            clearDropTargets();
+            document.removeEventListener('click', moveModeClickHandler, { capture: true });
+            document.removeEventListener('keydown', moveModeCancelHandler);
         }
 
         // --- Standard Handlers ---
@@ -3831,7 +3975,7 @@
                     todayEl.className = 'today-label';
                     todayEl.textContent = ' today';
                     itemText.appendChild(todayEl);
-                    attachTodayDropHandlers(header);
+                    if (!isMobileDevice) attachTodayDropHandlers(header);
                 }
 
                 dayFolder.classList.add('sub-folder');
@@ -3973,6 +4117,7 @@
             };
             header.querySelector('.star-btn').onclick = (e) => toggleBookmark(e, 'folder', id);
             header.querySelector('.menu').onclick = (e) => showContextMenu(e, 'folder', id);
+            header.addEventListener('contextmenu', (e) => showContextMenu(e, 'folder', id));
             // Double-click to rename custom folders
             if (type === 'custom') {
                 header.querySelector('.item-text').addEventListener('dblclick', (e) => {
@@ -3993,45 +4138,50 @@
             //};
             //controls.insertBefore(addBtn, controls.firstChild);
 
-            // Drag: only custom folders are draggable
-            if (type === 'custom') {
-                header.setAttribute('draggable', 'true');
-                header.addEventListener('dragstart', (e) => {
-                    e.stopPropagation();
-                    const dragType = 'customFolder';
-                    e.dataTransfer.setData('text/plain', JSON.stringify({
-                        type: dragType,
-                        folderId: id
-                    }));
-                    e.dataTransfer.effectAllowed = 'move';
-                    container.style.opacity = '0.5';
-                    highlightDropTargets(dragType);
-                });
-                header.addEventListener('dragend', () => {
-                    container.style.opacity = '1';
-                    clearAllDragOver();
-                    clearDropTargets();
-                });
-            }
+            if (!isMobileDevice) {
+                // Drag: only custom folders are draggable
+                if (type === 'custom') {
+                    header.setAttribute('draggable', 'true');
+                    header.addEventListener('dragstart', (e) => {
+                        e.stopPropagation();
+                        const dragType = 'customFolder';
+                        e.dataTransfer.setData('text/plain', JSON.stringify({
+                            type: dragType,
+                            folderId: id
+                        }));
+                        e.dataTransfer.effectAllowed = 'move';
+                        container.style.opacity = '0.5';
+                        highlightDropTargets(dragType);
+                    });
+                    header.addEventListener('dragend', () => {
+                        container.style.opacity = '1';
+                        clearAllDragOver();
+                        clearDropTargets();
+                    });
+                }
 
-            // Drop: all folders are drop targets
-            header.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                header.classList.add('drag-over');
-            });
-            header.addEventListener('dragleave', () => {
-                header.classList.remove('drag-over');
-            });
-            header.addEventListener('drop', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                header.classList.remove('drag-over');
-                try {
-                    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-                    handleDrop(data, id, type);
-                } catch (err) { }
-            });
+                // Drop: all folders are drop targets
+                header.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    header.classList.add('drag-over');
+                });
+                header.addEventListener('dragleave', () => {
+                    header.classList.remove('drag-over');
+                });
+                header.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    header.classList.remove('drag-over');
+                    try {
+                        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                        handleDrop(data, id, type);
+                    } catch (err) { }
+                });
+            } else {
+                // Mobile: long-press opens context menu
+                attachLongPress(header, (e) => showContextMenu(e, 'folder', id));
+            }
 
             const children = document.createElement('div');
             children.className = 'tree-children';
@@ -4073,38 +4223,43 @@
             `;
 
             let wasDragged = false;
-            if (!anchored) {
-                el.setAttribute('draggable', 'true');
-                el.addEventListener('dragstart', (e) => {
-                    wasDragged = true;
-                    const rawNoteIds = selectedNoteIds.has(note.id) && selectedNoteIds.size > 1
-                        ? [...selectedNoteIds] : [note.id];
-                    const noteIds = rawNoteIds.filter(id => {
-                        const selectedNote = noteById.get(id);
-                        return selectedNote && !isAnchoredNote(selectedNote);
+            if (!isMobileDevice) {
+                if (!anchored) {
+                    el.setAttribute('draggable', 'true');
+                    el.addEventListener('dragstart', (e) => {
+                        wasDragged = true;
+                        const rawNoteIds = selectedNoteIds.has(note.id) && selectedNoteIds.size > 1
+                            ? [...selectedNoteIds] : [note.id];
+                        const noteIds = rawNoteIds.filter(id => {
+                            const selectedNote = noteById.get(id);
+                            return selectedNote && !isAnchoredNote(selectedNote);
+                        });
+                        if (noteIds.length === 0) {
+                            e.preventDefault();
+                            wasDragged = false;
+                            return;
+                        }
+                        e.dataTransfer.setData('text/plain', JSON.stringify({
+                            type: 'note',
+                            noteId: noteIds[0],
+                            noteIds: noteIds
+                        }));
+                        e.dataTransfer.effectAllowed = 'move';
+                        el.style.opacity = '0.5';
+                        highlightDropTargets('note');
                     });
-                    if (noteIds.length === 0) {
-                        e.preventDefault();
-                        wasDragged = false;
-                        return;
-                    }
-                    e.dataTransfer.setData('text/plain', JSON.stringify({
-                        type: 'note',
-                        noteId: noteIds[0],
-                        noteIds: noteIds
-                    }));
-                    e.dataTransfer.effectAllowed = 'move';
-                    el.style.opacity = '0.5';
-                    highlightDropTargets('note');
-                });
-                el.addEventListener('dragend', () => {
-                    el.style.opacity = '1';
-                    clearAllDragOver();
-                    clearDropTargets();
-                    setTimeout(() => { wasDragged = false; }, 0);
-                });
+                    el.addEventListener('dragend', () => {
+                        el.style.opacity = '1';
+                        clearAllDragOver();
+                        clearDropTargets();
+                        setTimeout(() => { wasDragged = false; }, 0);
+                    });
+                } else {
+                    el.setAttribute('draggable', 'false');
+                }
             } else {
-                el.setAttribute('draggable', 'false');
+                // Mobile: long-press opens context menu
+                attachLongPress(el, (e) => showContextMenu(e, 'file', note.id));
             }
 
             el.onclick = (e) => {
@@ -4130,6 +4285,7 @@
             };
             el.querySelector('.star-btn').onclick = (e) => toggleBookmark(e, 'file', note.id);
             el.querySelector('.menu').onclick = (e) => showContextMenu(e, 'file', note.id);
+            el.addEventListener('contextmenu', (e) => showContextMenu(e, 'file', note.id));
             // Double-click to rename
             el.querySelector('.item-text').addEventListener('dblclick', (e) => {
                 e.stopPropagation();
