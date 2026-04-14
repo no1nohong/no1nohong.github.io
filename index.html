@@ -211,6 +211,11 @@
             transform: scale(0.93);
         }
 
+        .icon-btn.menu-open {
+            background: var(--hover-bg);
+            color: var(--text-active);
+        }
+
         .icon-btn.active {
             color: var(--bookmark-color);
             border-color: var(--bookmark-color);
@@ -277,8 +282,9 @@
             font-family: var(--font-stack);
             padding: 0 2px;
             line-height: 1;
-            display: none;
-            transition: color 0.15s;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s, color 0.15s;
         }
 
         .search-clear:hover {
@@ -286,7 +292,8 @@
         }
 
         .search-clear.show {
-            display: block;
+            opacity: 1;
+            pointer-events: auto;
         }
 
         .file-tree {
@@ -708,6 +715,15 @@
             color: var(--danger-color);
         }
 
+        .context-stat {
+            padding: 6px 12px;
+            font-size: 11px;
+            color: var(--text-color);
+            opacity: 0.6;
+            pointer-events: none;
+            user-select: none;
+        }
+
         /* Drag and Drop */
         .tree-header.drag-over,
         .file-item.drag-over {
@@ -993,6 +1009,14 @@
             box-shadow: 0 0 8px rgba(207, 142, 109, 0.3);
         }
 
+        @keyframes noteIn {
+            from { opacity: 0.3; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .note-enter {
+            animation: noteIn 0.15s ease-out;
+        }
+
         .save-indicator {
             position: absolute;
             bottom: 2px;
@@ -1018,11 +1042,10 @@
             color: var(--text-chars);
             font-size: 12px;
             opacity: 0;
-            transition: opacity 0.3s;
             pointer-events: none;
             user-select: none;
             white-space: nowrap;
-            transition: bottom 0.05s ease;
+            transition: opacity 0.3s, bottom 0.05s ease;
         }
 
         .word-count.show {
@@ -1731,12 +1754,24 @@
                 gap: 4px;
             }
 
-            /* Full-screen overlay drawer on phones */
-            #sidebar:not(.sidebar-collapsed) {
-                width: 100%;
+            /* Full-screen overlay drawer on phones — GPU-accelerated slide */
+            #sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 100% !important;
                 max-width: 100%;
                 border-right-width: 0;
                 border-radius: 0;
+                z-index: 20;
+                transform: translateX(0);
+                transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                will-change: transform;
+            }
+            #sidebar.sidebar-collapsed {
+                transform: translateX(-100%);
+                width: 100% !important; /* keep width, slide off-screen */
             }
 
             #editor,
@@ -1763,7 +1798,91 @@
             }
         }
 
+        /* --- Touch devices: remove sticky :hover highlights + add tap feedback --- */
+        @media (hover: none) {
+            .context-item:hover { background: unset; color: var(--text-overlay); }
+            .context-item-danger:hover { color: var(--danger-color); }
+            .tree-header:hover,
+            .file-item:hover { background: unset; border-color: transparent; }
+            .tree-header:hover .item-controls,
+            .file-item:hover .item-controls { opacity: 0; }
+            .tree-header:hover .star-btn,
+            .file-item:hover .star-btn { opacity: 0; }
+            .icon-btn:hover { background: unset; border-color: var(--border-color); color: var(--text-color); }
+            .control-btn:hover { background: unset; color: var(--text-dim); }
+            .tool-btn:hover { background: var(--surface-raised); color: var(--text-muted); border-color: var(--border-color); }
+            .star-btn:hover { color: inherit; }
+            .format-item:hover { background: unset; color: var(--text-overlay); }
+            .bulk-btn:hover { background: unset; }
+            .bulk-btn.danger:hover { background: unset; color: var(--danger-color); }
+            .trash-toggle:hover { background: unset; }
+            .new-btn:hover { background: unset; border-color: var(--border-color); color: var(--text-color); }
+        }
 
+        /* --- Touch devices: tap feedback (instant, no stickiness) --- */
+        @media (pointer: coarse) {
+            .file-item:active,
+            .tree-header:active {
+                background: var(--hover-bg);
+                transition: none;
+            }
+            .context-item:active {
+                background: var(--earth-primary);
+                color: var(--surface-deep);
+                transition: none;
+            }
+            .context-item-danger:active {
+                background: var(--danger-color-muted);
+                color: #fff;
+            }
+            .icon-btn:active,
+            .new-btn:active {
+                background: var(--hover-bg);
+                transition: none;
+            }
+            .tool-btn:active {
+                background: var(--hover-bg);
+                color: var(--text-active);
+                transition: none;
+            }
+            .format-item:active {
+                background: var(--earth-primary);
+                color: var(--surface-deep);
+                transition: none;
+            }
+        }
+
+        /* --- Touch devices: context menu as bottom sheet --- */
+        @keyframes sheetSlideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        @media (pointer: coarse) {
+            .context-menu.show {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                top: auto !important;
+                border-radius: 12px 12px 0 0;
+                padding-bottom: env(safe-area-inset-bottom, 8px);
+                min-width: unset;
+                width: 100%;
+                box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+                animation: sheetSlideUp 0.2s ease-out;
+            }
+            .context-menu .context-item {
+                padding: 14px 16px;
+                font-size: 15px;
+            }
+            .context-menu .context-divider {
+                margin: 2px 0;
+            }
+            .context-menu .context-stat {
+                padding: 10px 16px;
+                font-size: 12px;
+            }
+        }
 
     </style>
     <script>if (localStorage.getItem('imminote_theme') === 'dark') document.documentElement.removeAttribute('data-theme');</script>
@@ -1864,6 +1983,8 @@
         <div class="context-divider boundaries-divider"></div>
         <div class="context-item" id="ioToggleBoundaries"><span id="ioBoundaryIcon">&#9632;</span><span id="ioBoundaryLabel">writing boundaries</span></div>
         <div class="context-item" id="ioToggleTheme"><span class ="context-icon"id="ioThemeIcon">&#9728;</span><span id="ioThemeLabel">theme: light</span></div>
+        <div class="context-divider"></div>
+        <div class="context-stat" id="ioEntryCount"></div>
     </div>
 
     <div id="formatMenu" class="format-menu">
@@ -1967,6 +2088,8 @@
 
         /* Mobile gets larger font sizes to prevent Safari auto-zoom and improve readability */
         const isMobileDevice = window.matchMedia('(max-width: 480px)').matches;
+        /* Touch-primary devices (phones/tablets) — disables drag-and-drop, enables long-press */
+        const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
         const FONT_SIZES = isMobileDevice
             ? { small: '16px', medium: '18px', large: '20px' }
             : { small: '13px', medium: '15px', large: '18px' };
@@ -2441,6 +2564,9 @@
                 notes.sort((a, b) => b.timestamp - a.timestamp);
                 rebuildIndexes();
                 loadNote(notes[0].id);
+            } else if (!manifest) {
+                // True first run — no manifest ever existed. Seed welcome notes.
+                seedWelcomeNotes();
             } else {
                 rebuildIndexes();
                 prepareGhostNote();
@@ -2453,6 +2579,7 @@
                 }
                 if (!e.target.closest('#ioMenuBtn') && !e.target.closest('#ioMenu')) {
                     ioMenu.classList.remove('show');
+                    ioMenuBtn.classList.remove('menu-open');
                 }
                 if (!e.target.closest('#templateBtn') && !e.target.closest('#templateMenu') && !templateSaveMode) {
                     templateMenu.classList.remove('show');
@@ -2670,12 +2797,23 @@
 
                 if (isOpen) {
                     ioMenu.classList.remove('show');
+                    ioMenuBtn.classList.remove('menu-open');
                     return;
                 }
+                ioMenuBtn.classList.add('menu-open');
 
                 const btnRect = ioMenuBtn.getBoundingClientRect();
                 let top = btnRect.bottom + 4;
                 let left = btnRect.left;
+
+                // Update entry count
+                const entryCountEl = document.getElementById('ioEntryCount');
+                if (entryCountEl) {
+                    const origin = new Date('2026-02-12');
+                    const total = notes.length + deletedNotes.length;
+                    const days = Math.max(1, Math.ceil((Date.now() - origin) / 86400000));
+                    entryCountEl.textContent = `${total} entries · ${days} days`;
+                }
 
                 ioMenu.style.top = '-9999px';
                 ioMenu.style.left = '-9999px';
@@ -2844,6 +2982,86 @@
         }
 
         // --- Core Logic ---
+        function seedWelcomeNotes() {
+            const now = Date.now();
+            const isTouch = isTouchDevice;
+            const todayKey = new Date().toLocaleDateString('en-CA');
+
+            const welcomeContent =
+`welcome to imminote
+
+your notes live here. start typing — everything saves automatically, and works offline.
+
+each note gets a timestamp and organizes itself by date. no folders to set up, no decisions to make before you write.
+
+hit + note in the toolbar to capture another thought.
+
+` + (isTouch
+? `tap and hold any note for options — rename, favorite, move, anchor to top, and more.`
+: `right-click any note for options — rename, favorite, move, anchor to top, and more.`) + `
+
+when you're ready, delete these notes and make it yours.`;
+
+            const tipsContent =
+`tips
+
+` + (isTouch
+? `tap the ★ star on any note to favorite it. use the ★ filter button to see only favorites.
+
+tap and hold a folder for options like creating subfolders or new notes inside it.
+
+use the ⋮ menu at the top for backups, settings, and creating custom folders to organize by project.`
+: `click the ★ star on any note to favorite it. use the ★ filter button to see only favorites.
+
+drag notes between folders to reorganize them. create custom folders from the ⋮ menu at the top.
+
+try markdown preview in the toolbar — it renders headings, bold, italic, lists, links, and code blocks.`) + `
+
+this app was built for writing without friction. no accounts, no cloud, just your thoughts.`;
+
+            const welcomeNote = {
+                id: now,
+                timestamp: now,
+                content: welcomeContent,
+                customTitle: null,
+                isBookmarked: true,
+                folderId: 'date:' + todayKey,
+                anchoredDateKey: todayKey,
+                anchorOriginFolderId: null,
+                _contentLoaded: true
+            };
+
+            const tipsNote = {
+                id: now - 60000,
+                timestamp: now - 60000,
+                content: tipsContent,
+                customTitle: null,
+                isBookmarked: false,
+                folderId: null,
+                anchoredDateKey: null,
+                anchorOriginFolderId: null,
+                _contentLoaded: true
+            };
+
+            notes.push(welcomeNote, tipsNote);
+            openFolders.add(getMonthKey(todayKey));
+            openFolders.add(todayKey);
+
+            // Save seed notes
+            saveNoteContent(welcomeNote);
+            saveNoteContent(tipsNote);
+            saveData();
+            rebuildIndexes();
+
+            // Open sidebar on first run so user sees the structure
+            sidebarCollapsed = false;
+            document.getElementById('sidebar').classList.remove('sidebar-collapsed');
+            updateBackdrop();
+
+            renderSidebar();
+            loadNote(welcomeNote.id);
+        }
+
         function prepareGhostNote() {
             currentNoteId = null;
             editor.value = "";
@@ -2940,6 +3158,13 @@
                 }
 
                 renderSidebar();
+
+                // Subtle fade-in on note load
+                editor.classList.remove('note-enter');
+                void editor.offsetWidth;
+                editor.classList.add('note-enter');
+                editor.addEventListener('animationend', () => editor.classList.remove('note-enter'), { once: true });
+
                 editor.focus();
                 updateWordCount();
             }
@@ -3323,27 +3548,30 @@
                     }
                 }
                 // Move (mobile only, non-anchored)
-                if (isMobileDevice && note && !isAnchoredNote(note)) {
+                if (isTouchDevice && note && !isAnchoredNote(note)) {
                     ctxMove.style.display = 'flex';
                 }
             } else if (type === 'folder') {
                 ctxRename.style.display = 'flex';
-                // Favorite
-                ctxFavorite.style.display = 'flex';
-                const folder = folderById.get(id);
-                if (folder) {
-                    ctxFavoriteLabel.textContent = folder.isBookmarked ? 'unfavorite' : 'favorite';
-                } else {
-                    // Temporal folder — check if all notes in it are bookmarked
-                    const folderNotes = getNotesInFolder(id);
-                    const allBookmarked = folderNotes.length > 0 && folderNotes.every(n => n.isBookmarked);
-                    ctxFavoriteLabel.textContent = allBookmarked ? 'unfavorite' : 'favorite';
+                const isMonthFolder = !folderById.has(id) && id.length === 7;
+                // Favorite — hide for month folders
+                if (!isMonthFolder) {
+                    ctxFavorite.style.display = 'flex';
+                    const folder = folderById.get(id);
+                    if (folder) {
+                        ctxFavoriteLabel.textContent = folder.isBookmarked ? 'unfavorite' : 'favorite';
+                    } else {
+                        // Day temporal folder — check if all notes in it are bookmarked
+                        const folderNotes = getNotesInFolder(id);
+                        const allBookmarked = folderNotes.length > 0 && folderNotes.every(n => n.isBookmarked);
+                        ctxFavoriteLabel.textContent = allBookmarked ? 'unfavorite' : 'favorite';
+                    }
                 }
                 if (folderById.has(id)) {
                     ctxNewFolder.style.display = 'flex';
                     ctxNewNote.style.display = 'flex';
                     // Move (mobile only, custom folders)
-                    if (isMobileDevice) ctxMove.style.display = 'flex';
+                    if (isTouchDevice) ctxMove.style.display = 'flex';
                 } else {
                     // Month or day temporal folder
                     ctxNewNote.style.display = 'flex';
@@ -3623,21 +3851,24 @@
             }
             saveData();
 
-            // Pulse animation on star button
+            // Pulse animation + toggle star visually in-place
             const starEl = e.target.closest('.star-btn');
             if (starEl) {
+                starEl.classList.toggle('is-active');
                 starEl.classList.remove('pulse');
                 void starEl.offsetWidth; // reflow
                 starEl.classList.add('pulse');
                 starEl.addEventListener('animationend', () => starEl.classList.remove('pulse'), { once: true });
             }
 
-            // Snapshot open states (using whatever IDs are currently in the DOM)
-            document.querySelectorAll('.tree-item.open').forEach(el => {
-                const folderId = el.querySelector('.tree-header').getAttribute('data-folder-id');
-                if (folderId) openFolders.add(folderId);
-            });
-            renderSidebar();
+            // Full re-render only when needed (folder toggle changes children, or filter is active)
+            if (type !== 'file' || filterBookmarked) {
+                document.querySelectorAll('.tree-item.open').forEach(el => {
+                    const folderId = el.querySelector('.tree-header').getAttribute('data-folder-id');
+                    if (folderId) openFolders.add(folderId);
+                });
+                renderSidebar();
+            }
         }
 
         function getNotesInFolder(folderId) {
@@ -3975,7 +4206,7 @@
                     todayEl.className = 'today-label';
                     todayEl.textContent = ' today';
                     itemText.appendChild(todayEl);
-                    if (!isMobileDevice) attachTodayDropHandlers(header);
+                    if (!isTouchDevice) attachTodayDropHandlers(header);
                 }
 
                 dayFolder.classList.add('sub-folder');
@@ -4138,7 +4369,7 @@
             //};
             //controls.insertBefore(addBtn, controls.firstChild);
 
-            if (!isMobileDevice) {
+            if (!isTouchDevice) {
                 // Drag: only custom folders are draggable
                 if (type === 'custom') {
                     header.setAttribute('draggable', 'true');
@@ -4223,7 +4454,7 @@
             `;
 
             let wasDragged = false;
-            if (!isMobileDevice) {
+            if (!isTouchDevice) {
                 if (!anchored) {
                     el.setAttribute('draggable', 'true');
                     el.addEventListener('dragstart', (e) => {
